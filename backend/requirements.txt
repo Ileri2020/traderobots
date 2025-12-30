@@ -7,4 +7,5 @@ pymongo<4.0.0
 whitenoise>=6.6.0
 gunicorn>=21.2.0
 sqlparse==0.2.4
+numpy
 
