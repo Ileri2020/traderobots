@@ -504,116 +504,115 @@ const RobotCreation = () => {
                                 </Card>
                             ))}
                         </div>
+
+                        {/* Step 2: Deployment & Source Code */}
+                        {step === 2 && createdRobot && (
+                            <div className="absolute inset-0 bg-background/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in duration-300">
+                                <Card className="w-full max-w-2xl border-primary shadow-2xl shadow-primary/20">
+                                    <CardHeader className="text-center">
+                                        <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
+                                            <Check className="h-8 w-8 text-green-500" />
+                                        </div>
+                                        <CardTitle className="text-2xl font-black uppercase">Strategy Ready for Deployment</CardTitle>
+                                        <CardDescription>Your robot "{createdRobot.symbol} Bot" is compiled and optimized.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Button
+                                            variant="outline"
+                                            className="h-24 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 border-dashed"
+                                            onClick={handleCopyMql5}
+                                        >
+                                            <Copy className="h-6 w-6 text-primary" />
+                                            <span className="font-bold">Copy MQL5 Source</span>
+                                            <span className="text-xs text-muted-foreground">For MetaEditor Manual Compile</span>
+                                        </Button>
+                                        <Button
+                                            variant="default" // Use default variant for primary action
+                                            className="h-24 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary to-primary/80 hover:to-primary"
+                                            onClick={() => setShowDeployModal(true)}
+                                        >
+                                            <Play className="h-6 w-6" />
+                                            <span className="font-bold">Auto-Deploy to Account</span>
+                                            <span className="text-xs text-primary-foreground/80">Execute via Python API Bridge</span>
+                                        </Button>
+                                    </CardContent>
+                                    <CardFooter className="bg-muted/30 flex justify-center py-6">
+                                        <p className="text-xs text-muted-foreground flex items-center gap-2">
+                                            <Info className="h-3 w-3" />
+                                            The generated Python bridge requires your Trading Account to be connected in the dashboard.
+                                        </p>
+                                    </CardFooter>
+                                </Card>
+                            </div>
+                        )}
+
+                    </Card>
                 </div>
-
-                {/* Step 2: Deployment & Source Code */}
-                {step === 2 && createdRobot && (
-                    <div className="absolute inset-0 bg-background/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in duration-300">
-                        <Card className="w-full max-w-2xl border-primary shadow-2xl shadow-primary/20">
-                            <CardHeader className="text-center">
-                                <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
-                                    <Check className="h-8 w-8 text-green-500" />
-                                </div>
-                                <CardTitle className="text-2xl font-black uppercase">Strategy Ready for Deployment</CardTitle>
-                                <CardDescription>Your robot "{createdRobot.symbol} Bot" is compiled and optimized.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Button
-                                    variant="outline"
-                                    className="h-24 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 border-dashed"
-                                    onClick={handleCopyMql5}
-                                >
-                                    <Copy className="h-6 w-6 text-primary" />
-                                    <span className="font-bold">Copy MQL5 Source</span>
-                                    <span className="text-xs text-muted-foreground">For MetaEditor Manual Compile</span>
-                                </Button>
-                                <Button
-                                    variant="default" // Use default variant for primary action
-                                    className="h-24 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary to-primary/80 hover:to-primary"
-                                    onClick={() => setShowDeployModal(true)}
-                                >
-                                    <Play className="h-6 w-6" />
-                                    <span className="font-bold">Auto-Deploy to Account</span>
-                                    <span className="text-xs text-primary-foreground/80">Execute via Python API Bridge</span>
-                                </Button>
-                            </CardContent>
-                            <CardFooter className="bg-muted/30 flex justify-center py-6">
-                                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                                    <Info className="h-3 w-3" />
-                                    The generated Python bridge requires your Trading Account to be connected in the dashboard.
-                                </p>
-                            </CardFooter>
-                        </Card>
-                    </div>
-                )}
-
-            </Card>
-        </div>
             </div >
 
-    {/* Deployment Modal */ }
-    < Dialog open = { showDeployModal } onOpenChange = { setShowDeployModal } >
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Deploy Strategy to MT5</DialogTitle>
-                <DialogDescription>
-                    Configure execution parameters for your live trading environment.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                    <Label>Select Trading Account</Label>
-                    <Select
-                        value={deployConfig.accountId}
-                        onValueChange={(val) => setDeployConfig({ ...deployConfig, accountId: val })}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select account..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {accounts.map(acc => (
-                                <SelectItem key={acc.id} value={acc.id.toString()}>
-                                    {acc.account_number} ({acc.mode}) - ${acc.balance}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="grid gap-2">
-                        <Label>Lot Size</Label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={deployConfig.lot}
-                            onChange={e => setDeployConfig({ ...deployConfig, lot: parseFloat(e.target.value) })}
-                        />
+            {/* Deployment Modal */}
+            < Dialog open={showDeployModal} onOpenChange={setShowDeployModal} >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Deploy Strategy to MT5</DialogTitle>
+                        <DialogDescription>
+                            Configure execution parameters for your live trading environment.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>Select Trading Account</Label>
+                            <Select
+                                value={deployConfig.accountId}
+                                onValueChange={(val) => setDeployConfig({ ...deployConfig, accountId: val })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select account..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {accounts.map(acc => (
+                                        <SelectItem key={acc.id} value={acc.id.toString()}>
+                                            {acc.account_number} ({acc.mode}) - ${acc.balance}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="grid gap-2">
+                                <Label>Lot Size</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={deployConfig.lot}
+                                    onChange={e => setDeployConfig({ ...deployConfig, lot: parseFloat(e.target.value) })}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Stop Loss (pts)</Label>
+                                <Input
+                                    type="number"
+                                    value={deployConfig.sl}
+                                    onChange={e => setDeployConfig({ ...deployConfig, sl: parseInt(e.target.value) })}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Take Profit (pts)</Label>
+                                <Input
+                                    type="number"
+                                    value={deployConfig.tp}
+                                    onChange={e => setDeployConfig({ ...deployConfig, tp: parseInt(e.target.value) })}
+                                />
+                            </div>
+                        </div>
                     </div>
-                    <div className="grid gap-2">
-                        <Label>Stop Loss (pts)</Label>
-                        <Input
-                            type="number"
-                            value={deployConfig.sl}
-                            onChange={e => setDeployConfig({ ...deployConfig, sl: parseInt(e.target.value) })}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>Take Profit (pts)</Label>
-                        <Input
-                            type="number"
-                            value={deployConfig.tp}
-                            onChange={e => setDeployConfig({ ...deployConfig, tp: parseInt(e.target.value) })}
-                        />
-                    </div>
-                </div>
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setShowDeployModal(false)}>Cancel</Button>
-                <Button onClick={handleDeploy} disabled={isDeploying}>
-                    {isDeploying ? "Deploying..." : "Confirm & Launch Bot"}
-                </Button>
-            </DialogFooter>
-        </DialogContent>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowDeployModal(false)}>Cancel</Button>
+                        <Button onClick={handleDeploy} disabled={isDeploying}>
+                            {isDeploying ? "Deploying..." : "Confirm & Launch Bot"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
             </Dialog >
         </div >
     );
