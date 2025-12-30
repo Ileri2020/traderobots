@@ -94,6 +94,7 @@ const RobotCreation = () => {
         setIsCreating(true);
         setCreationProgress(0);
 
+        let interval: any;
         try {
             // Mapping UI state to Backend API expected format
             const indicators = [];
@@ -132,7 +133,7 @@ const RobotCreation = () => {
             };
 
             // Start simulation
-            const interval = setInterval(() => {
+            interval = setInterval(() => {
                 setCreationProgress(prev => {
                     if (prev >= 95) return 95;
                     return prev + 2;
