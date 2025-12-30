@@ -171,7 +171,7 @@ const Dashboard = () => {
                                             <TableCell className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold">Bot {robot.symbol}</span>
-                                                    <span className="text-[10px] text-muted-foreground font-mono">ID: {robot.id.slice(0, 8)}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-mono">ID: {robot.id?.toString().slice(0, 8)}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="font-mono font-bold text-xs">{robot.symbol}</TableCell>

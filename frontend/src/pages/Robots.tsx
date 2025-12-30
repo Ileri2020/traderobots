@@ -58,7 +58,7 @@ const Robots = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${robot.symbol}_${robot.method}_${robot.id.slice(0, 8)}.mq5`;
+        a.download = `${robot.symbol}_${robot.method}_${robot.id?.toString().slice(0, 8)}.mq5`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -125,7 +125,7 @@ const Robots = () => {
                                     <div>
                                         <CardTitle className="text-lg font-bold">{robot.symbol}</CardTitle>
                                         <CardDescription className="text-xs font-mono">
-                                            ID: {robot.id.slice(0, 8)}
+                                            ID: {robot.id?.toString().slice(0, 8)}
                                         </CardDescription>
                                     </div>
                                 </div>

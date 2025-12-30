@@ -213,28 +213,26 @@ const Social = () => {
                     </Card>
                 )}
             </div>
-                )}
-        </div>
 
-            {/* Error Alert Dialog */ }
-    <AlertDialog open={errorDialog.open} onOpenChange={(open) => setErrorDialog(prev => ({ ...prev, open }))}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle className="text-destructive flex items-center gap-2">
-                    <ShieldAlert className="h-5 w-5" />
-                    {errorDialog.title}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                    {errorDialog.description}
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogAction onClick={() => setErrorDialog(prev => ({ ...prev, open: false }))}>
-                    Understood
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+            {/* Error Alert Dialog */}
+            <AlertDialog open={errorDialog.open} onOpenChange={(open) => setErrorDialog(prev => ({ ...prev, open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <ShieldAlert className="h-5 w-5" />
+                            {errorDialog.title}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {errorDialog.description}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setErrorDialog(prev => ({ ...prev, open: false }))}>
+                            Understood
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div >
     );
 };

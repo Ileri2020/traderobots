@@ -228,7 +228,7 @@ const RobotCreation = () => {
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Market Asset</Label>
-                                    <Select defaultValue={configs.symbol}>
+                                    <Select defaultValue={configs.symbol} onValueChange={(val) => setConfigs({ ...configs, symbol: val })}>
                                         <SelectTrigger className="w-full h-11 font-bold">
                                             <SelectValue placeholder="Select Pair" />
                                         </SelectTrigger>
@@ -294,6 +294,7 @@ const RobotCreation = () => {
                                                     max={100}
                                                     step={1}
                                                     className="w-full"
+                                                    onValueChange={([b, s]) => setConfigs({ ...configs, rsi: { ...configs.rsi, buy: b, sell: s } })}
                                                 />
                                             </div>
                                         </AccordionContent>
