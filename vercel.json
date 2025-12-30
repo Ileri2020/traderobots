@@ -19,11 +19,15 @@
             "dest": "/backend/index.py"
         },
         {
+            "src": "/admin/(.*)",
+            "dest": "/backend/index.py"
+        },
+        {
             "handle": "filesystem"
         },
         {
             "src": "/(.*)",
-            "dest": "/dist/index.html"
+            "dest": "/index.html"
         }
     ]
 }

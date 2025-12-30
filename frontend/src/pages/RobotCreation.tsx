@@ -36,9 +36,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from '@/lib/utils';
-import { Cpu, Zap, Settings2, BarChart, ChevronRight, Check, Info, Copy, Play, Terminal, ShieldAlert } from 'lucide-react';
+import { Cpu, Zap, Settings2, BarChart, ChevronRight, Check, Info, Copy, Play, ShieldAlert } from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogAction,
