@@ -1,4 +1,8 @@
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
+
 import os
 import numpy as np
 from dotenv import load_dotenv
@@ -8,6 +12,9 @@ load_dotenv()
 class MT5Connector:
     @staticmethod
     def initialize():
+        if mt5 is None:
+            return False
+            
         try:
             if not mt5.initialize():
                 return False
