@@ -112,4 +112,5 @@ class MT5Connector:
 
     @staticmethod
     def shutdown():
-        mt5.shutdown()
+        if mt5:
+            mt5.shutdown()
