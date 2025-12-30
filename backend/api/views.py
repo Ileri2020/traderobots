@@ -76,6 +76,22 @@ class UserViewSet(viewsets.ModelViewSet):
         print(f"DEBUG: Login failed: Invalid credentials for {username}")
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], authentication_classes=[])
+    @method_decorator(csrf_exempt)
+    def register(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        email = request.data.get('email')
+        
+        if not username or not password:
+             return Response({"error": "Username and password required"}, status=status.HTTP_400_BAD_REQUEST)
+             
+        if User.objects.filter(username=username).exists():
+             return Response({"error": "Username already exists"}, status=status.HTTP_400_BAD_REQUEST)
+             
+        user = User.objects.create_user(username=username, email=email, password=password)
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def logout(self, request):
         from django.contrib.auth import logout
