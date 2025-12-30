@@ -9,4 +9,5 @@ gunicorn>=21.2.0
 sqlparse==0.2.4
 numpy
 pandas
+dnspython
 
