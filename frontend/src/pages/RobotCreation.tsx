@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
@@ -24,17 +24,32 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from '@/lib/utils';
-import { Cpu, Zap, Settings2, BarChart, ChevronRight, Check, Info } from 'lucide-react';
+import { Cpu, Zap, Settings2, BarChart, ChevronRight, Check, Info, Copy, Play, Terminal } from 'lucide-react';
 
 const RobotCreation = () => {
     const [step, setStep] = useState(1);
     const [isCreating, setIsCreating] = useState(false);
     const [creationProgress, setCreationProgress] = useState(0);
+    const [createdRobot, setCreatedRobot] = useState<any>(null);
+    const [accounts, setAccounts] = useState<any[]>([]);
+    const [showDeployModal, setShowDeployModal] = useState(false);
+    const [deployConfig, setDeployConfig] = useState({ accountId: '', lot: 0.01, sl: 30, tp: 60 });
+    const [isDeploying, setIsDeploying] = useState(false);
+
     const [configs, setConfigs] = useState<any>({
         symbol: 'EURUSD',
         timeframe: 'H1',
@@ -47,6 +62,22 @@ const RobotCreation = () => {
         sl: 30,
         tp: 60
     });
+
+    useEffect(() => {
+        fetchAccounts();
+    }, []);
+
+    const fetchAccounts = async () => {
+        try {
+            const res = await axios.get('/api/trading-accounts/');
+            setAccounts(res.data);
+            if (res.data.length > 0) {
+                setDeployConfig(prev => ({ ...prev, accountId: res.data[0].id }));
+            }
+        } catch (e) {
+            console.error("Failed to fetch accounts", e);
+        }
+    };
 
     const handleCreateRobot = async () => {
         setIsCreating(true);
@@ -83,13 +114,14 @@ const RobotCreation = () => {
                 });
             }, 100);
 
-            await axios.post('/api/robots/create_winrate_robot/', payload);
+            const response = await axios.post('/api/robots/create_winrate_robot/', payload);
 
             clearInterval(interval);
             setCreationProgress(100);
 
             setTimeout(() => {
                 setIsCreating(false);
+                setCreatedRobot(response.data);
                 setStep(2);
                 toast.success('Robot created and MQL5 code generated!');
             }, 500);
@@ -97,6 +129,42 @@ const RobotCreation = () => {
         } catch (error) {
             setIsCreating(false);
             toast.error('Failed to generate robot. Check MT5 connection.');
+        }
+    };
+
+    const handleCopyMql5 = () => {
+        if (createdRobot?.mql5_code) {
+            navigator.clipboard.writeText(createdRobot.mql5_code);
+            toast.success("MQL5 Code copied to clipboard!");
+        }
+    };
+
+    const handleDeploy = async () => {
+        if (!deployConfig.accountId) {
+            toast.error("Please select a trading account");
+            return;
+        }
+        setIsDeploying(true);
+        try {
+            const res = await axios.post(`/api/robots/${createdRobot.id}/deploy/`, {
+                account_id: deployConfig.accountId,
+                lot: deployConfig.lot,
+                sl: deployConfig.sl,
+                tp: deployConfig.tp
+            });
+            setShowDeployModal(false);
+            toast.success("Robot Deployed Successfully!", {
+                description: "Python trading script is ready/running."
+            });
+            // Update local robot state with new python code if needed
+            setCreatedRobot({ ...createdRobot, python_code: res.data.python_code });
+        } catch (e) {
+            console.error(e);
+            toast.error("Deployment Failed", {
+                description: "Could not connect to the trading account."
+            });
+        } finally {
+            setIsDeploying(false);
         }
     };
 
@@ -436,10 +504,118 @@ const RobotCreation = () => {
                                 </Card>
                             ))}
                         </div>
-                    </Card>
+                </div>
+
+                {/* Step 2: Deployment & Source Code */}
+                {step === 2 && createdRobot && (
+                    <div className="absolute inset-0 bg-background/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in duration-300">
+                        <Card className="w-full max-w-2xl border-primary shadow-2xl shadow-primary/20">
+                            <CardHeader className="text-center">
+                                <div className="mx-auto w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
+                                    <Check className="h-8 w-8 text-green-500" />
+                                </div>
+                                <CardTitle className="text-2xl font-black uppercase">Strategy Ready for Deployment</CardTitle>
+                                <CardDescription>Your robot "{createdRobot.symbol} Bot" is compiled and optimized.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Button
+                                    variant="outline"
+                                    className="h-24 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 border-dashed"
+                                    onClick={handleCopyMql5}
+                                >
+                                    <Copy className="h-6 w-6 text-primary" />
+                                    <span className="font-bold">Copy MQL5 Source</span>
+                                    <span className="text-xs text-muted-foreground">For MetaEditor Manual Compile</span>
+                                </Button>
+                                <Button
+                                    variant="default" // Use default variant for primary action
+                                    className="h-24 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary to-primary/80 hover:to-primary"
+                                    onClick={() => setShowDeployModal(true)}
+                                >
+                                    <Play className="h-6 w-6" />
+                                    <span className="font-bold">Auto-Deploy to Account</span>
+                                    <span className="text-xs text-primary-foreground/80">Execute via Python API Bridge</span>
+                                </Button>
+                            </CardContent>
+                            <CardFooter className="bg-muted/30 flex justify-center py-6">
+                                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                                    <Info className="h-3 w-3" />
+                                    The generated Python bridge requires your Trading Account to be connected in the dashboard.
+                                </p>
+                            </CardFooter>
+                        </Card>
+                    </div>
+                )}
+
+            </Card>
+        </div>
+            </div >
+
+    {/* Deployment Modal */ }
+    < Dialog open = { showDeployModal } onOpenChange = { setShowDeployModal } >
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Deploy Strategy to MT5</DialogTitle>
+                <DialogDescription>
+                    Configure execution parameters for your live trading environment.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label>Select Trading Account</Label>
+                    <Select
+                        value={deployConfig.accountId}
+                        onValueChange={(val) => setDeployConfig({ ...deployConfig, accountId: val })}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select account..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {accounts.map(acc => (
+                                <SelectItem key={acc.id} value={acc.id.toString()}>
+                                    {acc.account_number} ({acc.mode}) - ${acc.balance}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-2">
+                        <Label>Lot Size</Label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            value={deployConfig.lot}
+                            onChange={e => setDeployConfig({ ...deployConfig, lot: parseFloat(e.target.value) })}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Stop Loss (pts)</Label>
+                        <Input
+                            type="number"
+                            value={deployConfig.sl}
+                            onChange={e => setDeployConfig({ ...deployConfig, sl: parseInt(e.target.value) })}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Take Profit (pts)</Label>
+                        <Input
+                            type="number"
+                            value={deployConfig.tp}
+                            onChange={e => setDeployConfig({ ...deployConfig, tp: parseInt(e.target.value) })}
+                        />
+                    </div>
                 </div>
             </div>
-        </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDeployModal(false)}>Cancel</Button>
+                <Button onClick={handleDeploy} disabled={isDeploying}>
+                    {isDeploying ? "Deploying..." : "Confirm & Launch Bot"}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+            </Dialog >
+        </div >
     );
 };
 

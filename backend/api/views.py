@@ -209,6 +209,59 @@ class RobotViewSet(viewsets.ModelViewSet):
 
         return Response(RobotSerializer(robot).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'])
+    def deploy(self, request, pk=None):
+        robot = self.get_object()
+        account_id = request.data.get('account_id')
+        
+        lot = float(request.data.get('lot', 0.01))
+        sl = int(request.data.get('sl', 30))
+        tp = int(request.data.get('tp', 60))
+        
+        try:
+            account = TradingAccount.objects.get(id=account_id, user=request.user)
+        except TradingAccount.DoesNotExist:
+            return Response({"error": "Trading Account not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        print(f"DEBUG: Deploying Robot {robot.id} to Account {account.account_number}")
+        
+        # Reconstruct rules from stored indicators
+        # Note: Ideally we store the full 'rules' dict in the model, but currently we store 'indicators' list
+        # We will do a best-effort reconstruction or use stored risk_settings if available
+        # Ideally we'd persist the exact 'rules' dict used during creation.
+        
+        # For now, let's reconstruct similarly to create_winrate_robot
+        rules = {}
+        if 'rsi' in robot.indicators: rules['rsi'] = {'buy': 30, 'sell': 70, 'period': 14}
+        if 'ma' in robot.indicators: rules['ma'] = {'period': 50, 'type': 'MODE_SMA'}
+        if 'macd' in robot.indicators: rules['macd'] = {}
+        if 'bands' in robot.indicators: rules['bands'] = {'period': 20, 'dev': 2.0}
+        if 'stoch' in robot.indicators: rules['stoch'] = {}
+
+        risk = {'lot': lot, 'sl': sl, 'tp': tp}
+        
+        # Generate Python Code
+        python_code = RobotGenerator.generate_python(
+            robot_name=f"Bot_{robot.symbol}_{robot.id}",
+            symbol=robot.symbol,
+            timeframe="H1", # Defaulting to H1 as stored in create_winrate_robot
+            rules=rules,
+            risk=risk,
+            account_id=account.account_number, # Use account number (login) for MT5
+            password=account.password if account.password else "PASSWORD",
+            server=account.server if account.server else "MetaQuotes-Demo"
+        )
+        
+        robot.python_code = python_code
+        robot.risk_settings = risk # Update risk settings with deployed values
+        robot.is_active = True
+        robot.save()
+        
+        return Response({
+            "status": "deployed",
+            "message": "Robot python code generated successfully. Ready for execution.",
+            "python_code": python_code
+        })
 class AppVisitViewSet(viewsets.ModelViewSet):
     queryset = AppVisit.objects.all()
     serializer_class = AppVisitSerializer

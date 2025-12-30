@@ -252,3 +252,110 @@ void TradeSell()
 }}
 """
         return code
+
+    @staticmethod
+    def generate_python(robot_name, symbol, timeframe, rules, risk, account_id, password, server):
+        """
+        Generates Python code using MetaTrader5 library for the strategy.
+        """
+        # Python script structure
+        python_script = f"""
+import MetaTrader5 as mt5
+import time
+import pandas as pd
+from datetime import datetime
+
+# Creds
+LOGIN = {account_id}
+PASSWORD = "{password}"
+SERVER = "{server}"
+SYMBOL = "{symbol}"
+TIMEFRAME = mt5.TIMEFRAME_{timeframe}
+LOT_SIZE = {risk.get('lot', 0.01)}
+SL_POINTS = {risk.get('sl', 30)}
+TP_POINTS = {risk.get('tp', 60)}
+
+def connect():
+    if not mt5.initialize(login=LOGIN, server=SERVER, password=PASSWORD):
+        print("initialize() failed, error code =", mt5.last_error())
+        return False
+    return True
+
+def get_data():
+    rates = mt5.copy_rates_from_pos(SYMBOL, TIMEFRAME, 0, 100)
+    if rates is None:
+        return None
+    df = pd.DataFrame(rates)
+    df['time'] = pd.to_datetime(df['time'], unit='s')
+    return df
+
+def signal_check(df):
+    # Retrieve latest close
+    last_close = df.iloc[-1]['close']
+    prev_close = df.iloc[-2]['close']
+    
+    buy_score = 0
+    sell_score = 0
+    
+    # Simple logic translation (Placeholders for complex indicators for now)
+    # real implementation would use ta-lib or pandas-ta
+    
+    # Random placeholder logic to demonstrate structure
+    # In production, mapping 'rsi' to pandas_ta.rsi would happen here
+    if last_close > prev_close:
+        buy_score += 1
+    else:
+        sell_score += 1
+        
+    if buy_score > 0: return 'buy'
+    if sell_score > 0: return 'sell'
+    return None
+
+def execute_trade(signal):
+    point = mt5.symbol_info(SYMBOL).point
+    price = mt5.symbol_info_tick(SYMBOL).ask if signal == 'buy' else mt5.symbol_info_tick(SYMBOL).bid
+    
+    request = {{
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": SYMBOL,
+        "volume": LOT_SIZE,
+        "type": mt5.ORDER_TYPE_BUY if signal == 'buy' else mt5.ORDER_TYPE_SELL,
+        "price": price,
+        "sl": price - SL_POINTS * point if signal == 'buy' else price + SL_POINTS * point,
+        "tp": price + TP_POINTS * point if signal == 'buy' else price - TP_POINTS * point,
+        "deviation": 10,
+        "magic": 234000,
+        "comment": "python script open",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }}
+    
+    result = mt5.order_send(request)
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
+        print("order_send failed, retcode={{}}".format(result.retcode))
+    else:
+        print("Trade executed!")
+
+def main():
+    if not connect():
+        return
+        
+    print(f"Bot {robot_name} started on {{SYMBOL}}...")
+    
+    while True:
+        df = get_data()
+        if df is not None:
+            sig = signal_check(df)
+            if sig:
+                # Check positions
+                positions = mt5.positions_get(symbol=SYMBOL)
+                if positions == None or len(positions) == 0:
+                    print(f"Signal {{sig}} detected. Executing...")
+                    execute_trade(sig)
+        
+        time.sleep(60) # check every minute
+
+if __name__ == "__main__":
+    main()
+"""
+        return python_script

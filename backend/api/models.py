@@ -44,6 +44,7 @@ class Robot(models.Model):
     risk_settings = models.JSONField(default=dict) # {lot: 0.01, sl: 30, tp: 60}
     win_rate = models.FloatField(default=0.0)
     mql5_code = models.TextField(blank=True, null=True)
+    python_code = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
