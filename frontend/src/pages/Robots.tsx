@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bot, TrendingUp, Download, Star, Filter } from 'lucide-react';
+import { Bot, TrendingUp, Download, Star, Filter, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -15,11 +15,21 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Robots = () => {
     const [robots, setRobots] = useState<any[]>([]);
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('win_rate');
+    const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
 
     useEffect(() => {
         fetchRobots();
@@ -29,8 +39,13 @@ const Robots = () => {
         try {
             const response = await axios.get('/api/robots/');
             setRobots(response.data);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching robots:', error);
+            setErrorDialog({
+                open: true,
+                title: 'Data Unavailable',
+                description: 'Unable to load robot marketplace. Please check your connection.'
+            });
         }
     };
 
@@ -207,6 +222,26 @@ const Robots = () => {
                     </div>
                 )}
             </div>
+
+            {/* Error Alert Dialog */}
+            <AlertDialog open={errorDialog.open} onOpenChange={(open) => setErrorDialog(prev => ({ ...prev, open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <ShieldAlert className="h-5 w-5" />
+                            {errorDialog.title}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {errorDialog.description}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setErrorDialog(prev => ({ ...prev, open: false }))}>
+                            Understood
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

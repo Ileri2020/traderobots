@@ -38,7 +38,16 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from '@/lib/utils';
-import { Cpu, Zap, Settings2, BarChart, ChevronRight, Check, Info, Copy, Play, Terminal } from 'lucide-react';
+import { Cpu, Zap, Settings2, BarChart, ChevronRight, Check, Info, Copy, Play, Terminal, ShieldAlert } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const RobotCreation = () => {
     const [step, setStep] = useState(1);
@@ -49,6 +58,7 @@ const RobotCreation = () => {
     const [showDeployModal, setShowDeployModal] = useState(false);
     const [deployConfig, setDeployConfig] = useState({ accountId: '', lot: 0.01, sl: 30, tp: 60 });
     const [isDeploying, setIsDeploying] = useState(false);
+    const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
 
     const [configs, setConfigs] = useState<any>({
         symbol: 'EURUSD',
@@ -126,9 +136,15 @@ const RobotCreation = () => {
                 toast.success('Robot created and MQL5 code generated!');
             }, 500);
 
-        } catch (error) {
+        } catch (error: any) {
             setIsCreating(false);
-            toast.error('Failed to generate robot. Check MT5 connection.');
+            const msg = error.response?.data?.error || 'Failed to generate robot. Check MT5 connection.';
+            setErrorDialog({
+                open: true,
+                title: 'Strategy Synthesis Failed',
+                description: msg
+            });
+            // toast.error('Failed to generate robot. Check MT5 connection.');
         }
     };
 
@@ -158,10 +174,14 @@ const RobotCreation = () => {
             });
             // Update local robot state with new python code if needed
             setCreatedRobot({ ...createdRobot, python_code: res.data.python_code });
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            toast.error("Deployment Failed", {
-                description: "Could not connect to the trading account."
+            setShowDeployModal(false);
+            const msg = e.response?.data?.error || "Could not connect to the trading account.";
+            setErrorDialog({
+                open: true,
+                title: 'Deployment Failed',
+                description: msg
             });
         } finally {
             setIsDeploying(false);
@@ -614,7 +634,26 @@ const RobotCreation = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog >
-        </div >
+            {/* Error Alert Dialog */}
+            <AlertDialog open={errorDialog.open} onOpenChange={(open) => setErrorDialog(prev => ({ ...prev, open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <ShieldAlert className="h-5 w-5" />
+                            {errorDialog.title}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {errorDialog.description}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setErrorDialog(prev => ({ ...prev, open: false }))}>
+                            Understood
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
     );
 };
 

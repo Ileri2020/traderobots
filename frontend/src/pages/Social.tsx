@@ -5,11 +5,21 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Heart, MessageCircle, Send, ImagePlus, User } from 'lucide-react';
+import { Heart, MessageCircle, Send, ImagePlus, User, ShieldAlert } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Social = () => {
     const [posts, setPosts] = useState<any[]>([]);
     const [newPost, setNewPost] = useState('');
+    const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     useEffect(() => {
@@ -22,6 +32,11 @@ const Social = () => {
             setPosts(response.data);
         } catch (error) {
             console.error('Error fetching posts:', error);
+            setErrorDialog({
+                open: true,
+                title: 'Data Load Error',
+                description: 'Unable to retrieve community posts.'
+            });
         }
     };
 
@@ -35,8 +50,13 @@ const Social = () => {
             setNewPost('');
             toast.success('Post created successfully!');
             fetchPosts();
-        } catch (error) {
-            toast.error('Failed to create post');
+        } catch (error: any) {
+            const msg = error.response?.data?.error || 'Failed to create post';
+            setErrorDialog({
+                open: true,
+                title: 'Post Failed',
+                description: msg
+            });
         }
     };
 
@@ -193,7 +213,29 @@ const Social = () => {
                     </Card>
                 )}
             </div>
+                )}
         </div>
+
+            {/* Error Alert Dialog */ }
+    <AlertDialog open={errorDialog.open} onOpenChange={(open) => setErrorDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5" />
+                    {errorDialog.title}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                    {errorDialog.description}
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setErrorDialog(prev => ({ ...prev, open: false }))}>
+                    Understood
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+        </div >
     );
 };
 
