@@ -2,6 +2,10 @@
     "version": 2,
     "builds": [
         {
+            "src": "backend/hello.py",
+            "use": "@vercel/python"
+        },
+        {
             "src": "backend/index.py",
             "use": "@vercel/python",
             "config": {
@@ -18,6 +22,10 @@
         }
     ],
     "routes": [
+        {
+            "src": "/api/hello",
+            "dest": "/backend/hello.py"
+        },
         {
             "src": "/api/(.*)",
             "dest": "/backend/index.py"
