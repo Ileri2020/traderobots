@@ -14,6 +14,20 @@ session.headers.update({
     "Origin": BASE_URL
 })
 
+def update_csrf_token():
+    token = session.cookies.get('csrftoken')
+    if token:
+        session.headers.update({'X-CSRFToken': token})
+    else:
+        # Try to get it from a safe GET request if missing
+        try:
+             session.get(f"{API_URL}/users/login/")
+             token = session.cookies.get('csrftoken')
+             if token:
+                 session.headers.update({'X-CSRFToken': token})
+        except:
+             pass
+
 def print_result(page_name, api_name, status, details=""):
     symbol = "[PASS]" if status == "PASS" else "[FAIL]"
     print(f"{symbol} [{page_name}] {api_name}: {details}")
@@ -28,6 +42,8 @@ def test_login_page():
         # But we need to hit the site to get cookies if keys depend on it.
     except Exception as e:
         pass
+
+    update_csrf_token()
 
     # 2. Login
     login_data = {
@@ -104,6 +120,7 @@ def test_social_page():
         print_result("Social", "Get Posts", "FAIL", r.text)
 
     # Create a post
+    update_csrf_token()
     post_data = {"content": "Automated API Test Post"}
     r = session.post(f"{API_URL}/social/posts/", json=post_data)
     if r.status_code == 201:
