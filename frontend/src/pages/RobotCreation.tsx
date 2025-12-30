@@ -36,6 +36,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { cn } from '@/lib/utils';
 import { Cpu, Zap, Settings2, BarChart, ChevronRight, Check, Info, Copy, Play, ShieldAlert } from 'lucide-react';
 import {
@@ -683,6 +684,34 @@ const RobotCreation = () => {
                                 />
                             </div>
                         </div>
+                        {/* Balance Projection */}
+                        <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                <span>Estimated Impact (per trade)</span>
+                                <span>Ref: $1/pt @ 1 Lot</span>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2 gap-4 pt-1">
+                                <div className="space-y-1">
+                                    <span className="text-[9px] font-bold text-green-600 tracking-wider uppercase">Projected Gain</span>
+                                    <p className="text-lg font-black text-green-500">
+                                        +${(deployConfig.lot * deployConfig.tp).toFixed(2)}
+                                    </p>
+                                </div>
+                                <div className="space-y-1 text-right">
+                                    <span className="text-[9px] font-bold text-destructive tracking-wider uppercase">Projected Risk</span>
+                                    <p className="text-lg font-black text-destructive">
+                                        -${(deployConfig.lot * deployConfig.sl).toFixed(2)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="pt-2 flex justify-between items-center text-[10px] font-bold text-muted-foreground italic border-t border-border/50">
+                                <span>Resulting Bal (Est):</span>
+                                <span className="text-primary">
+                                    ${((accounts.find(a => a.id.toString() === deployConfig.accountId)?.balance || 0) + (deployConfig.lot * deployConfig.tp)).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
                         <p className="text-[10px] text-muted-foreground italic flex-1 mr-4">
@@ -721,7 +750,6 @@ const RobotCreation = () => {
     );
 };
 
-// Simple Separator because shadcn-add might still be running
-const Separator = () => <div className="h-px bg-border w-full my-2" />;
+
 
 export default RobotCreation;

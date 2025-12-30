@@ -20,8 +20,31 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { ArrowUpRight, ArrowDownRight, Activity, Wallet, BarChart3, Bell, RefreshCw, Zap } from 'lucide-react';
+import {
+    ArrowUpRight,
+    ArrowDownRight,
+    Activity,
+    Wallet,
+    BarChart3,
+    Bell,
+    RefreshCw,
+    Zap,
+    TrendingUp,
+    Code
+} from 'lucide-react';
 import { toast } from 'sonner';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+
 
 const Dashboard = () => {
     const [accounts, setAccounts] = useState<any[]>([]);
@@ -29,6 +52,12 @@ const Dashboard = () => {
     const [tradeLogs, setTradeLogs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+
+    // New State for Robot Control
+    const [selectedRobot, setSelectedRobot] = useState<any>(null);
+    const [showTradeModal, setShowTradeModal] = useState(false);
+    const [tradeConfig, setTradeConfig] = useState({ lot: 0.1, sl: 300, tp: 600 });
+    const [isDeploying, setIsDeploying] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -81,7 +110,48 @@ const Dashboard = () => {
         }
     };
 
+    const handleAutoTrade = async () => {
+        if (!selectedRobot || !accounts[0]) return;
+        setIsDeploying(true);
+        try {
+            await axios.post(`/api/robots/${selectedRobot.id}/deploy/`, {
+                account_id: accounts[0].id,
+                lot: tradeConfig.lot,
+                sl: tradeConfig.sl,
+                tp: tradeConfig.tp
+            });
+            toast.success("Order Placed Successfully!", {
+                description: `Bot ${selectedRobot.symbol} is now executing with ${tradeConfig.lot} lot.`
+            });
+            setShowTradeModal(false);
+            fetchData();
+        } catch (error: any) {
+            const msg = error.response?.data?.error || "Failed to execute trade on MT5.";
+            toast.error("MT5 Execution Failed", { description: msg });
+        } finally {
+            setIsDeploying(false);
+        }
+    };
+
+    const handleCopyCode = (type: 'mql5' | 'python') => {
+        if (!selectedRobot) return;
+        const code = type === 'mql5' ? selectedRobot.mql5_code : selectedRobot.python_code;
+        if (code) {
+            navigator.clipboard.writeText(code);
+            toast.success(`${type.toUpperCase()} Code copied!`);
+        } else {
+            toast.error("Code not generated yet. Deploy robot first.");
+        }
+    };
+
     const mainAccount = accounts[0] || { balance: 0, equity: 0, mode: 'OFFLINE' };
+
+    // Dynamic Calculations
+    const pointValue = 1.0; // Simplified average point value per lot
+    const estProfit = tradeConfig.lot * tradeConfig.tp * pointValue;
+    const estLoss = tradeConfig.lot * tradeConfig.sl * pointValue;
+    const projectedProfitBalance = mainAccount.balance + estProfit;
+    const projectedLossBalance = mainAccount.balance - estLoss;
 
     return (
         <div className="flex flex-col gap-8 p-4 md:p-8 max-w-7xl mx-auto">
@@ -190,15 +260,29 @@ const Dashboard = () => {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right px-6">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-destructive font-bold hover:bg-destructive/10"
-                                                    onClick={() => handleStopRobot(robot.id)}
-                                                    disabled={isStopping[robot.id]}
-                                                >
-                                                    {isStopping[robot.id] ? "STOPPING..." : "STOP"}
-                                                </Button>
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="font-bold border-primary/20 text-primary hover:bg-primary/10"
+                                                        onClick={() => {
+                                                            setSelectedRobot(robot);
+                                                            setTradeConfig({ lot: robot.lot || 0.1, sl: robot.sl || 300, tp: robot.tp || 600 });
+                                                            setShowTradeModal(true);
+                                                        }}
+                                                    >
+                                                        OPEN CONTROLLER
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-destructive font-bold hover:bg-destructive/10"
+                                                        onClick={() => handleStopRobot(robot.id)}
+                                                        disabled={isStopping[robot.id]}
+                                                    >
+                                                        {isStopping[robot.id] ? "STOPPING..." : "STOP"}
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     )) : (
@@ -259,6 +343,108 @@ const Dashboard = () => {
                     </CardFooter>
                 </Card>
             </div>
+
+            {/* Robot Control Modal */}
+            <Dialog open={showTradeModal} onOpenChange={setShowTradeModal}>
+                <DialogContent className="sm:max-w-xl border-primary/20 bg-background/95 backdrop-blur-xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-2xl font-black italic tracking-tighter uppercase">
+                            <TrendingUp className="h-6 w-6 text-primary" />
+                            Robot Controller
+                        </DialogTitle>
+                        <DialogDescription className="font-medium">
+                            Configure parameters for <span className="text-primary font-bold">Bot {selectedRobot?.symbol}</span>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="grid gap-6 py-4">
+                        <div className="flex gap-4 p-4 bg-muted/30 rounded-2xl border border-border/50">
+                            <div className="flex-1 space-y-1">
+                                <span className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">Target Win Rate</span>
+                                <p className="text-xl font-bold text-green-500">{selectedRobot?.win_rate}%</p>
+                            </div>
+                            <Separator orientation="vertical" className="h-10" />
+                            <div className="flex-1 space-y-1">
+                                <span className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">Base Currency</span>
+                                <p className="text-xl font-bold">{selectedRobot?.symbol}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="grid gap-2">
+                                <Label className="text-[11px] font-bold uppercase">Volume (Lot)</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    className="font-bold h-11"
+                                    value={tradeConfig.lot}
+                                    onChange={e => setTradeConfig({ ...tradeConfig, lot: parseFloat(e.target.value) })}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label className="text-[11px] font-bold uppercase text-destructive">Stop Loss (pts)</Label>
+                                <Input
+                                    type="number"
+                                    className="font-bold h-11 border-destructive/20 focus-visible:ring-destructive"
+                                    value={tradeConfig.sl}
+                                    onChange={e => setTradeConfig({ ...tradeConfig, sl: parseInt(e.target.value) })}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label className="text-[11px] font-bold uppercase text-green-500">Take Profit (pts)</Label>
+                                <Input
+                                    type="number"
+                                    className="font-bold h-11 border-green-500/20 focus-visible:ring-green-500"
+                                    value={tradeConfig.tp}
+                                    onChange={e => setTradeConfig({ ...tradeConfig, tp: parseInt(e.target.value) })}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Balance Projection */}
+                        <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                            <div className="flex items-center justify-between text-xs font-bold">
+                                <span>CURRENT BALANCE:</span>
+                                <span>${mainAccount.balance.toLocaleString()}</span>
+                            </div>
+                            <Separator />
+                            <div className="grid grid-cols-2 gap-4 pt-1">
+                                <div className="space-y-1">
+                                    <span className="text-[9px] font-black text-green-600 tracking-wider">PROJECTED GAIN</span>
+                                    <p className="text-sm font-bold text-green-500">+${estProfit.toFixed(2)}</p>
+                                    <p className="text-[10px] text-muted-foreground font-medium">New Bal: ${projectedProfitBalance.toLocaleString()}</p>
+                                </div>
+                                <div className="space-y-1 text-right">
+                                    <span className="text-[9px] font-black text-destructive tracking-wider">PROJECTED RISK</span>
+                                    <p className="text-sm font-bold text-destructive">-${estLoss.toFixed(2)}</p>
+                                    <p className="text-[10px] text-muted-foreground font-medium">New Bal: ${projectedLossBalance.toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Source Code Options */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button variant="outline" className="h-10 text-xs font-bold gap-2" onClick={() => handleCopyCode('mql5')}>
+                                <Code className="h-4 w-4" /> COPY MQL5
+                            </Button>
+                            <Button variant="outline" className="h-10 text-xs font-bold gap-2" onClick={() => handleCopyCode('python')}>
+                                <TrendingUp className="h-4 w-4" /> COPY PYTHON
+                            </Button>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            className="w-full h-12 font-black italic tracking-tighter uppercase text-lg animate-pulse hover:animate-none"
+                            disabled={isDeploying || !accounts[0]}
+                            onClick={handleAutoTrade}
+                        >
+                            {isDeploying ? "Launching Order..." : "Auto-Place to MT5"}
+                            <Zap className="ml-2 h-5 w-5 fill-current" />
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
