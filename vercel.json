@@ -11,15 +11,15 @@
         },
         {
             "source": "/assets/(.*)",
-            "destination": "/frontend/assets/$1"
+            "destination": "/assets/$1"
         },
         {
             "source": "/(.*\\..*)",
-            "destination": "/frontend/$1"
+            "destination": "/$1"
         },
         {
             "source": "/(.*)",
-            "destination": "/frontend/index.html"
+            "destination": "/index.html"
         }
     ]
 }
