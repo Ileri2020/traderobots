@@ -61,7 +61,9 @@ def test_login_page():
              print_result("Signup Page", "User Register", "FAIL", f"Could not register: {reg_response.text}")
              return False
     else:
-        print_result("Login Page", "User Login", "FAIL", f"Status: {response.status_code} - {response.text}")
+        print_result("Login Page", "User Login", "FAIL", f"Status: {response.status_code}")
+        print(f"FAILED DETAILS: {response.text[:200]}")
+        print(f"HEADERS: {response.headers}")
         return False
 
 def test_dashboard_page():
