@@ -23,8 +23,16 @@
             "dest": "/backend/traderobots/wsgi.py"
         },
         {
-            "src": "/(.*)",
+            "src": "/assets/(.*)",
+            "dest": "/frontend/assets/$1"
+        },
+        {
+            "src": "/(.*\\..*)",
             "dest": "/frontend/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/frontend/index.html"
         }
     ]
 }
