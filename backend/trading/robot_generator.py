@@ -1,0 +1,201 @@
+import json
+
+class RobotGenerator:
+    @staticmethod
+    def generate_mql5(robot_name, symbol, timeframe, rules, risk):
+        """
+        Generates MQL5 code for a given strategy.
+        rules: dict of signals, e.g. {'rsi': {'buy': 30, 'sell': 70}, 'ma': {'period': 50, 'type': 'SMA'}}
+        risk: dict with lot, sl, tp
+        """
+        
+        # Initialize handles and variables
+        init_code = ""
+        deinit_code = ""
+        tick_logic = ""
+        global_vars = ""
+        
+        # RSI Implementation
+        if 'rsi' in rules:
+            global_vars += "int handle_rsi;\n"
+            init_code += f"   handle_rsi = iRSI(_Symbol, _Period, {rules['rsi'].get('period', 14)}, PRICE_CLOSE);\n"
+            init_code += "   if(handle_rsi == INVALID_HANDLE) return(INIT_FAILED);\n"
+            deinit_code += "   IndicatorRelease(handle_rsi);\n"
+            
+            tick_logic += """
+   double rsi[];
+   CopyBuffer(handle_rsi, 0, 0, 2, rsi);
+   ArraySetAsSeries(rsi, true);
+   bool rsi_buy = rsi[0] < """ + str(rules['rsi'].get('buy', 30)) + """;
+   bool rsi_sell = rsi[0] > """ + str(rules['rsi'].get('sell', 70)) + """;
+"""
+        else:
+            tick_logic += "\n   bool rsi_buy = true; bool rsi_sell = true;\n"
+
+        # Moving Average Implementation
+        if 'ma' in rules:
+            global_vars += "int handle_ma;\n"
+            ma_method = rules['ma'].get('type', 'MODE_SMA')
+            init_code += f"   handle_ma = iMA(_Symbol, _Period, {rules['ma'].get('period', 50)}, 0, {ma_method}, PRICE_CLOSE);\n"
+            init_code += "   if(handle_ma == INVALID_HANDLE) return(INIT_FAILED);\n"
+            deinit_code += "   IndicatorRelease(handle_ma);\n"
+            
+            tick_logic += """
+   double ma[];
+   CopyBuffer(handle_ma, 0, 0, 2, ma);
+   ArraySetAsSeries(ma, true);
+   double close[];
+   CopyBuffer(INVALID_HANDLE, 0, 0, 2, close); // Current price
+   ArraySetAsSeries(close, true);
+   bool ma_buy = SymbolInfoDouble(_Symbol, SYMBOL_ASK) > ma[0];
+   bool ma_sell = SymbolInfoDouble(_Symbol, SYMBOL_BID) < ma[0];
+"""
+        else:
+            tick_logic += "   bool ma_buy = true; bool ma_sell = true;\n"
+
+        # MACD Implementation
+        if 'macd' in rules:
+            global_vars += "int handle_macd;\n"
+            init_code += f"   handle_macd = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);\n"
+            init_code += "   if(handle_macd == INVALID_HANDLE) return(INIT_FAILED);\n"
+            deinit_code += "   IndicatorRelease(handle_macd);\n"
+            
+            tick_logic += """
+   double macd_main[], macd_signal[];
+   CopyBuffer(handle_macd, 0, 0, 2, macd_main);
+   CopyBuffer(handle_macd, 1, 0, 2, macd_signal);
+   ArraySetAsSeries(macd_main, true);
+   ArraySetAsSeries(macd_signal, true);
+   bool macd_buy = macd_main[0] > macd_signal[0] && macd_main[1] <= macd_signal[1];
+   bool macd_sell = macd_main[0] < macd_signal[0] && macd_main[1] >= macd_signal[1];
+"""
+        # Bollinger Bands Implementation
+        if 'bands' in rules:
+            global_vars += "int handle_bands;\n"
+            init_code += f"   handle_bands = iBands(_Symbol, _Period, {rules['bands'].get('period', 20)}, 0, {rules['bands'].get('dev', 2.0)}, PRICE_CLOSE);\n"
+            init_code += "   if(handle_bands == INVALID_HANDLE) return(INIT_FAILED);\n"
+            deinit_code += "   IndicatorRelease(handle_bands);\n"
+            tick_logic += """
+   double upper[], lower[], mid[];
+   CopyBuffer(handle_bands, 1, 0, 2, upper);
+   CopyBuffer(handle_bands, 2, 0, 2, lower);
+   CopyBuffer(handle_bands, 0, 0, 2, mid);
+   ArraySetAsSeries(upper, true); ArraySetAsSeries(lower, true); ArraySetAsSeries(mid, true);
+   bool bands_buy = SymbolInfoDouble(_Symbol, SYMBOL_ASK) < lower[0];
+   bool bands_sell = SymbolInfoDouble(_Symbol, SYMBOL_BID) > upper[0];
+"""
+        else:
+            tick_logic += "   bool bands_buy = true; bool bands_sell = true;\n"
+
+        # Stochastic Implementation
+        if 'stoch' in rules:
+            global_vars += "int handle_stoch;\n"
+            init_code += f"   handle_stoch = iStochastic(_Symbol, _Period, 5, 3, 3, MODE_SMA, STO_LOWHIGH);\n"
+            init_code += "   if(handle_stoch == INVALID_HANDLE) return(INIT_FAILED);\n"
+            deinit_code += "   IndicatorRelease(handle_stoch);\n"
+            tick_logic += """
+   double main_stoch[], signal_stoch[];
+   CopyBuffer(handle_stoch, 0, 0, 2, main_stoch);
+   CopyBuffer(handle_stoch, 1, 0, 2, signal_stoch);
+   ArraySetAsSeries(main_stoch, true); ArraySetAsSeries(signal_stoch, true);
+   bool stoch_buy = main_stoch[0] < 20 && main_stoch[0] > signal_stoch[0];
+   bool stoch_sell = main_stoch[0] > 80 && main_stoch[0] < signal_stoch[0];
+"""
+        else:
+            tick_logic += "   bool stoch_buy = true; bool stoch_sell = true;\n"
+
+        code = f"""//+------------------------------------------------------------------+
+//|                                              {robot_name}.mq5 |
+//|                                  Generated by Traderobots AI |
+//|                                             https://traderobots.ai |
+//+------------------------------------------------------------------+
+#property copyright "Traderobots AI"
+#property link      "https://traderobots.ai"
+#property version   "1.00"
+#property strict
+
+//--- Input parameters
+input double   InpLots      = {risk.get('lot', 0.01)};    // Lot size
+input int      InpStopLoss  = {risk.get('sl', 30)};      // Stop Loss in points
+input int      InpTakeProfit= {risk.get('tp', 60)};      // Take Profit in points
+
+//--- Global variables
+{global_vars}
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+{{
+{init_code}
+   return(INIT_SUCCEEDED);
+}}
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{{
+{deinit_code}
+}}
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTick()
+{{
+   if(!TerminalInfoInteger(TERMINAL_CONNECTED)) return;
+   {tick_logic}
+   
+   // Check for open positions
+   if(PositionsTotal() == 0)
+   {{
+      // Buy Signal
+      if(rsi_buy && ma_buy && macd_buy && bands_buy && stoch_buy)
+      {{
+         TradeBuy();
+      }}
+      // Sell Signal
+      else if(rsi_sell && ma_sell && macd_sell && bands_sell && stoch_sell)
+      {{
+         TradeSell();
+      }}
+   }}
+}}
+
+void TradeBuy()
+{{
+   MqlTradeRequest request={{0}};
+   MqlTradeResult  result={{0}};
+   
+   request.action   = TRADE_ACTION_DEAL;
+   request.symbol   = _Symbol;
+   request.volume   = InpLots;
+   request.type     = ORDER_TYPE_BUY;
+   request.price    = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   request.sl       = request.price - InpStopLoss * _Point;
+   request.tp       = request.price + InpTakeProfit * _Point;
+   request.deviation= 10;
+   request.magic    = 123456;
+   
+   OrderSend(request, result);
+}}
+
+void TradeSell()
+{{
+   MqlTradeRequest request={{0}};
+   MqlTradeResult  result={{0}};
+   
+   request.action   = TRADE_ACTION_DEAL;
+   request.symbol   = _Symbol;
+   request.volume   = InpLots;
+   request.type     = ORDER_TYPE_SELL;
+   request.price    = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   request.sl       = request.price + InpStopLoss * _Point;
+   request.tp       = request.price - InpTakeProfit * _Point;
+   request.deviation= 10;
+   request.magic    = 123456;
+   
+   OrderSend(request, result);
+}}
+"""
+        return code
