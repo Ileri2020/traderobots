@@ -1,7 +1,7 @@
 import os
 import sys
 
-# Add the backend directory to sys.path so we can import traderobots
+# Add the backend directory to sys.path so we can import traderobots  
 # api/ is at root. backend/ is at root. So ../backend is correct.
 sys.path.append(os.path.join(os.path.dirname(__file__), '../backend'))
 
