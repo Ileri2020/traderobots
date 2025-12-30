@@ -257,15 +257,79 @@ void TradeSell()
     def generate_python(robot_name, symbol, timeframe, rules, risk, account_id, password, server):
         """
         Generates Python code using MetaTrader5 library for the strategy.
+        Now includes logic for RSI, MA, MACD, Bollinger Bands, and Stochastic using pandas_ta.
         """
+        
+        # 1. Build Indicator Calculations and Logic
+        calc_lines = []
+        buy_conds = []
+        sell_conds = []
+
+        # RSI
+        if 'rsi' in rules:
+            p = rules['rsi'].get('period', 14)
+            buy_val = rules['rsi'].get('buy', 30)
+            sell_val = rules['rsi'].get('sell', 70)
+            calc_lines.append(f"    # RSI\n    df['rsi'] = df.ta.rsi(length={p})")
+            buy_conds.append(f"(df['rsi'].iloc[-1] < {buy_val})")
+            sell_conds.append(f"(df['rsi'].iloc[-1] > {sell_val})")
+
+        # MA
+        if 'ma' in rules:
+            p = rules['ma'].get('period', 50)
+            # Default to SMA for simplicity in python script, could check 'type' maps to sma/ema
+            calc_lines.append(f"    # MA\n    df['ma'] = df.ta.sma(length={p})")
+            buy_conds.append("(df['close'].iloc[-1] > df['ma'].iloc[-1])")
+            sell_conds.append("(df['close'].iloc[-1] < df['ma'].iloc[-1])")
+
+        # MACD
+        if 'macd' in rules:
+            # macd(fast=12, slow=26, signal=9) returns columns: MACD_12_26_9, MACDh_12_26_9, MACDs_12_26_9
+            calc_lines.append("    # MACD\n    macd = df.ta.macd(fast=12, slow=26, signal=9)")
+            calc_lines.append("    df = pd.concat([df, macd], axis=1)")
+            # MQL5: buy if main > signal (crossover?) or main > signal 
+            # Simplified Logic: Buy if MACD line > Signal line
+            # Column names from pandas_ta usually: MACD_12_26_9 (Main), MACDs_12_26_9 (Signal)
+            buy_conds.append("(df.iloc[-1]['MACD_12_26_9'] > df.iloc[-1]['MACDs_12_26_9'])")
+            sell_conds.append("(df.iloc[-1]['MACD_12_26_9'] < df.iloc[-1]['MACDs_12_26_9'])")
+
+        # Bollinger Bands
+        if 'bands' in rules:
+            p = rules['bands'].get('period', 20)
+            d = rules['bands'].get('dev', 2.0)
+            # bbands returns BBL, BBM, BBU
+            calc_lines.append(f"    # Bands\n    bands = df.ta.bbands(length={p}, std={d})")
+            calc_lines.append("    df = pd.concat([df, bands], axis=1)")
+            # Columns: BBL_{p}_{d}, BBU_{p}_{d}
+            # Buy if price < Lower, Sell if price > Upper
+            low_col = f"BBL_{p}_{d}"
+            up_col = f"BBU_{p}_{d}"
+            buy_conds.append(f"(df['close'].iloc[-1] < df.iloc[-1]['{low_col}'])")
+            sell_conds.append(f"(df['close'].iloc[-1] > df.iloc[-1]['{up_col}'])")
+
+        # Stochastic
+        if 'stoch' in rules:
+            # stoch(k=5, d=3, smooth_k=3) returns STOCHk, STOCHd
+            calc_lines.append("    # Stoch\n    stoch = df.ta.stoch(k=5, d=3, smooth_k=3)")
+            calc_lines.append("    df = pd.concat([df, stoch], axis=1)")
+            # Columns: STOCHk_5_3_3, STOCHd_5_3_3
+            buy_conds.append("(df.iloc[-1]['STOCHk_5_3_3'] < 20 and df.iloc[-1]['STOCHk_5_3_3'] > df.iloc[-1]['STOCHd_5_3_3'])")
+            sell_conds.append("(df.iloc[-1]['STOCHk_5_3_3'] > 80 and df.iloc[-1]['STOCHk_5_3_3'] < df.iloc[-1]['STOCHd_5_3_3'])")
+
+        # Combine
+        calc_code = "\n".join(calc_lines) if calc_lines else "    pass"
+        buy_expr = " and ".join(buy_conds) if buy_conds else "False"
+        sell_expr = " and ".join(sell_conds) if sell_conds else "False"
+
         # Python script structure
         python_script = f"""
 import MetaTrader5 as mt5
 import time
 import pandas as pd
+import pandas_ta as ta
 from datetime import datetime
 
-# Creds
+# Creds & Settings
 LOGIN = {account_id}
 PASSWORD = "{password}"
 SERVER = "{server}"
@@ -290,25 +354,16 @@ def get_data():
     return df
 
 def signal_check(df):
-    # Retrieve latest close
-    last_close = df.iloc[-1]['close']
-    prev_close = df.iloc[-2]['close']
+    if len(df) < 50: return None
     
-    buy_score = 0
-    sell_score = 0
+{calc_code}
     
-    # Simple logic translation (Placeholders for complex indicators for now)
-    # real implementation would use ta-lib or pandas-ta
-    
-    # Random placeholder logic to demonstrate structure
-    # In production, mapping 'rsi' to pandas_ta.rsi would happen here
-    if last_close > prev_close:
-        buy_score += 1
-    else:
-        sell_score += 1
+    # Logic Checks
+    if {buy_expr}:
+        return 'buy'
+    elif {sell_expr}:
+        return 'sell'
         
-    if buy_score > 0: return 'buy'
-    if sell_score > 0: return 'sell'
     return None
 
 def execute_trade(signal):
@@ -325,7 +380,7 @@ def execute_trade(signal):
         "tp": price + TP_POINTS * point if signal == 'buy' else price - TP_POINTS * point,
         "deviation": 10,
         "magic": 234000,
-        "comment": "python script open",
+        "comment": "python ai bot",
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }}
@@ -334,26 +389,33 @@ def execute_trade(signal):
     if result.retcode != mt5.TRADE_RETCODE_DONE:
         print("order_send failed, retcode={{}}".format(result.retcode))
     else:
-        print("Trade executed!")
+        print(f"Trade executed: {{signal}}")
 
 def main():
     if not connect():
+        print("Failed to connect to MT5")
         return
         
-    print(f"Bot {robot_name} started on {{SYMBOL}}...")
+    print(f"Bot {robot_name} started on {{SYMBOL}}. Waiting for signals...")
     
     while True:
-        df = get_data()
-        if df is not None:
-            sig = signal_check(df)
-            if sig:
-                # Check positions
-                positions = mt5.positions_get(symbol=SYMBOL)
-                if positions == None or len(positions) == 0:
-                    print(f"Signal {{sig}} detected. Executing...")
-                    execute_trade(sig)
-        
-        time.sleep(60) # check every minute
+        try:
+            df = get_data()
+            if df is not None:
+                sig = signal_check(df)
+                if sig:
+                    # Check positions
+                    positions = mt5.positions_get(symbol=SYMBOL)
+                    if positions is None or len(positions) == 0:
+                        print(f"Signal {{sig}} detected! Executing...")
+                        execute_trade(sig)
+                    else:
+                        print(f"Signal {{sig}} detected but position exists.")
+            
+            time.sleep(60) # check every minute
+        except Exception as e:
+            print(f"Error in main loop: {{e}}")
+            time.sleep(10)
 
 if __name__ == "__main__":
     main()
