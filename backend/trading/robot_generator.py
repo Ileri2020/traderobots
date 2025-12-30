@@ -12,97 +12,147 @@ class RobotGenerator:
         # Initialize handles and variables
         init_code = ""
         deinit_code = ""
-        tick_logic = ""
+        
+        # Logic for boolean checks
+        buy_conditions = []
+        sell_conditions = []
+        
         global_vars = ""
         
+        signal_logic = ""
+
+        # Helper to add indicator logic
+        def add_indicator(name, globals_str, init_str, deinit_str, logic_str, buy_cond, sell_cond):
+            nonlocal global_vars, init_code, deinit_code, signal_logic
+            global_vars += globals_str
+            init_code += init_str
+            deinit_code += deinit_str
+            signal_logic += logic_str
+            buy_conditions.append(buy_cond)
+            sell_conditions.append(sell_cond)
+
         # RSI Implementation
         if 'rsi' in rules:
-            global_vars += "int handle_rsi;\n"
-            init_code += f"   handle_rsi = iRSI(_Symbol, _Period, {rules['rsi'].get('period', 14)}, PRICE_CLOSE);\n"
-            init_code += "   if(handle_rsi == INVALID_HANDLE) return(INIT_FAILED);\n"
-            deinit_code += "   IndicatorRelease(handle_rsi);\n"
-            
-            tick_logic += """
+            add_indicator(
+                "RSI",
+                "int handle_rsi;\n",
+                f"   handle_rsi = iRSI(_Symbol, _Period, {rules['rsi'].get('period', 14)}, PRICE_CLOSE);\n"
+                "   if(handle_rsi == INVALID_HANDLE) return(INIT_FAILED);\n",
+                "   IndicatorRelease(handle_rsi);\n",
+                f"""
+bool CheckRSI(bool is_buy)
+{{
    double rsi[];
    CopyBuffer(handle_rsi, 0, 0, 2, rsi);
    ArraySetAsSeries(rsi, true);
-   bool rsi_buy = rsi[0] < """ + str(rules['rsi'].get('buy', 30)) + """;
-   bool rsi_sell = rsi[0] > """ + str(rules['rsi'].get('sell', 70)) + """;
-"""
-        else:
-            tick_logic += "\n   bool rsi_buy = true; bool rsi_sell = true;\n"
+   if(is_buy) return rsi[0] < {rules['rsi'].get('buy', 30)};
+   else return rsi[0] > {rules['rsi'].get('sell', 70)};
+}}
+""",
+                "CheckRSI(true)",
+                "CheckRSI(false)"
+            )
 
         # Moving Average Implementation
         if 'ma' in rules:
-            global_vars += "int handle_ma;\n"
             ma_method = rules['ma'].get('type', 'MODE_SMA')
-            init_code += f"   handle_ma = iMA(_Symbol, _Period, {rules['ma'].get('period', 50)}, 0, {ma_method}, PRICE_CLOSE);\n"
-            init_code += "   if(handle_ma == INVALID_HANDLE) return(INIT_FAILED);\n"
-            deinit_code += "   IndicatorRelease(handle_ma);\n"
-            
-            tick_logic += """
+            add_indicator(
+                "MA",
+                "int handle_ma;\n",
+                f"   handle_ma = iMA(_Symbol, _Period, {rules['ma'].get('period', 50)}, 0, {ma_method}, PRICE_CLOSE);\n"
+                "   if(handle_ma == INVALID_HANDLE) return(INIT_FAILED);\n",
+                "   IndicatorRelease(handle_ma);\n",
+                """
+bool CheckMA(bool is_buy)
+{{
    double ma[];
    CopyBuffer(handle_ma, 0, 0, 2, ma);
    ArraySetAsSeries(ma, true);
-   double close[];
-   CopyBuffer(INVALID_HANDLE, 0, 0, 2, close); // Current price
-   ArraySetAsSeries(close, true);
-   bool ma_buy = SymbolInfoDouble(_Symbol, SYMBOL_ASK) > ma[0];
-   bool ma_sell = SymbolInfoDouble(_Symbol, SYMBOL_BID) < ma[0];
-"""
-        else:
-            tick_logic += "   bool ma_buy = true; bool ma_sell = true;\n"
+   double price = is_buy ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(is_buy) return price > ma[0];
+   else return price < ma[0];
+}}
+""",
+                "CheckMA(true)",
+                "CheckMA(false)"
+            )
 
         # MACD Implementation
         if 'macd' in rules:
-            global_vars += "int handle_macd;\n"
-            init_code += f"   handle_macd = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);\n"
-            init_code += "   if(handle_macd == INVALID_HANDLE) return(INIT_FAILED);\n"
-            deinit_code += "   IndicatorRelease(handle_macd);\n"
-            
-            tick_logic += """
+            add_indicator(
+                "MACD",
+                "int handle_macd;\n",
+                f"   handle_macd = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);\n"
+                "   if(handle_macd == INVALID_HANDLE) return(INIT_FAILED);\n",
+                "   IndicatorRelease(handle_macd);\n",
+                """
+bool CheckMACD(bool is_buy)
+{{
    double macd_main[], macd_signal[];
    CopyBuffer(handle_macd, 0, 0, 2, macd_main);
    CopyBuffer(handle_macd, 1, 0, 2, macd_signal);
    ArraySetAsSeries(macd_main, true);
    ArraySetAsSeries(macd_signal, true);
-   bool macd_buy = macd_main[0] > macd_signal[0] && macd_main[1] <= macd_signal[1];
-   bool macd_sell = macd_main[0] < macd_signal[0] && macd_main[1] >= macd_signal[1];
-"""
+   if(is_buy) return macd_main[0] > macd_signal[0] && macd_main[1] <= macd_signal[1];
+   else return macd_main[0] < macd_signal[0] && macd_main[1] >= macd_signal[1];
+}}
+""",
+                "CheckMACD(true)",
+                "CheckMACD(false)"
+            )
+            
         # Bollinger Bands Implementation
         if 'bands' in rules:
-            global_vars += "int handle_bands;\n"
-            init_code += f"   handle_bands = iBands(_Symbol, _Period, {rules['bands'].get('period', 20)}, 0, {rules['bands'].get('dev', 2.0)}, PRICE_CLOSE);\n"
-            init_code += "   if(handle_bands == INVALID_HANDLE) return(INIT_FAILED);\n"
-            deinit_code += "   IndicatorRelease(handle_bands);\n"
-            tick_logic += """
-   double upper[], lower[], mid[];
-   CopyBuffer(handle_bands, 1, 0, 2, upper);
-   CopyBuffer(handle_bands, 2, 0, 2, lower);
-   CopyBuffer(handle_bands, 0, 0, 2, mid);
-   ArraySetAsSeries(upper, true); ArraySetAsSeries(lower, true); ArraySetAsSeries(mid, true);
-   bool bands_buy = SymbolInfoDouble(_Symbol, SYMBOL_ASK) < lower[0];
-   bool bands_sell = SymbolInfoDouble(_Symbol, SYMBOL_BID) > upper[0];
-"""
-        else:
-            tick_logic += "   bool bands_buy = true; bool bands_sell = true;\n"
+             add_indicator(
+                "Bands",
+                "int handle_bands;\n",
+                f"   handle_bands = iBands(_Symbol, _Period, {rules['bands'].get('period', 20)}, 0, {rules['bands'].get('dev', 2.0)}, PRICE_CLOSE);\n"
+                "   if(handle_bands == INVALID_HANDLE) return(INIT_FAILED);\n",
+                "   IndicatorRelease(handle_bands);\n",
+                """
+bool CheckBands(bool is_buy)
+{{
+   double upper[], lower[];
+   if(is_buy) {
+        CopyBuffer(handle_bands, 2, 0, 2, lower);
+        ArraySetAsSeries(lower, true);
+        return SymbolInfoDouble(_Symbol, SYMBOL_ASK) < lower[0];
+   } else {
+        CopyBuffer(handle_bands, 1, 0, 2, upper);
+        ArraySetAsSeries(upper, true);
+        return SymbolInfoDouble(_Symbol, SYMBOL_BID) > upper[0];
+   }
+}}
+""",
+                "CheckBands(true)",
+                "CheckBands(false)"
+            )
 
         # Stochastic Implementation
         if 'stoch' in rules:
-            global_vars += "int handle_stoch;\n"
-            init_code += f"   handle_stoch = iStochastic(_Symbol, _Period, 5, 3, 3, MODE_SMA, STO_LOWHIGH);\n"
-            init_code += "   if(handle_stoch == INVALID_HANDLE) return(INIT_FAILED);\n"
-            deinit_code += "   IndicatorRelease(handle_stoch);\n"
-            tick_logic += """
+            add_indicator(
+                "Stoch",
+                "int handle_stoch;\n",
+                f"   handle_stoch = iStochastic(_Symbol, _Period, 5, 3, 3, MODE_SMA, STO_LOWHIGH);\n"
+                "   if(handle_stoch == INVALID_HANDLE) return(INIT_FAILED);\n",
+                "   IndicatorRelease(handle_stoch);\n",
+                """
+bool CheckStoch(bool is_buy)
+{{
    double main_stoch[], signal_stoch[];
    CopyBuffer(handle_stoch, 0, 0, 2, main_stoch);
    CopyBuffer(handle_stoch, 1, 0, 2, signal_stoch);
    ArraySetAsSeries(main_stoch, true); ArraySetAsSeries(signal_stoch, true);
-   bool stoch_buy = main_stoch[0] < 20 && main_stoch[0] > signal_stoch[0];
-   bool stoch_sell = main_stoch[0] > 80 && main_stoch[0] < signal_stoch[0];
-"""
-        else:
-            tick_logic += "   bool stoch_buy = true; bool stoch_sell = true;\n"
+   if(is_buy) return main_stoch[0] < 20 && main_stoch[0] > signal_stoch[0];
+   else return main_stoch[0] > 80 && main_stoch[0] < signal_stoch[0];
+}}
+""",
+                "CheckStoch(true)",
+                "CheckStoch(false)"
+            )
+            
+        buy_cond_str = " && ".join(buy_conditions) if buy_conditions else "false"
+        sell_cond_str = " && ".join(sell_conditions) if sell_conditions else "false"
 
         code = f"""//+------------------------------------------------------------------+
 //|                                              {robot_name}.mq5 |
@@ -121,6 +171,10 @@ input int      InpTakeProfit= {risk.get('tp', 60)};      // Take Profit in point
 
 //--- Global variables
 {global_vars}
+
+//--- Signal Logic Functions
+{signal_logic}
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
@@ -144,18 +198,17 @@ void OnDeinit(const int reason)
 void OnTick()
 {{
    if(!TerminalInfoInteger(TERMINAL_CONNECTED)) return;
-   {tick_logic}
    
    // Check for open positions
    if(PositionsTotal() == 0)
    {{
       // Buy Signal
-      if(rsi_buy && ma_buy && macd_buy && bands_buy && stoch_buy)
+      if({buy_cond_str})
       {{
          TradeBuy();
       }}
       // Sell Signal
-      else if(rsi_sell && ma_sell && macd_sell && bands_sell && stoch_sell)
+      else if({sell_cond_str})
       {{
          TradeSell();
       }}

@@ -28,6 +28,7 @@ import {
     Users,
     Zap
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Trades = () => {
     const [robots, setRobots] = useState<any[]>([]);
@@ -132,18 +133,44 @@ const Trades = () => {
                                         )}
                                 </div>
 
-                                {/* Chart Visualization (Simulated) */}
-                                <div className="h-24 flex items-end gap-1 px-1 bg-gradient-to-t from-primary/5 to-transparent rounded-xl border border-border/10 p-2">
-                                    {Array.from({ length: 14 }).map((_, i) => {
-                                        const h = Math.floor(Math.random() * 80) + 20;
-                                        return (
-                                            <div
-                                                key={i}
-                                                className="flex-1 bg-primary/20 rounded-t-sm transition-all duration-500 group-hover:bg-primary/60"
-                                                style={{ height: `${h}%` }}
+                                {/* Chart Visualization (Recharts) */}
+                                <div className="h-24 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={Array.from({ length: 20 }).map((_, i) => ({
+                                            date: new Date(Date.now() - (19 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                                            value: Math.floor(Math.random() * 1000) + 1000 + (Math.sin(i) * 200)
+                                        }))}>
+                                            <defs>
+                                                <linearGradient id={`colorValue-${robot.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis
+                                                dataKey="date"
+                                                hide={true}
                                             />
-                                        );
-                                    })}
+                                            <YAxis
+                                                hide={true}
+                                                domain={['dataMin - 100', 'dataMax + 100']}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', fontSize: '12px' }}
+                                                itemStyle={{ color: '#10b981' }}
+                                                labelStyle={{ color: '#9ca3af' }}
+                                                formatter={(value: number) => [`$${value}`, 'Amount']}
+                                                labelFormatter={(label) => `Date: ${label}`}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="value"
+                                                stroke="#10b981"
+                                                strokeWidth={2}
+                                                fillOpacity={1}
+                                                fill={`url(#colorValue-${robot.id})`}
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
                                 </div>
 
                                 <div className="flex justify-between items-center text-sm">
