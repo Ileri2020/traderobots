@@ -105,7 +105,7 @@ const Profile = () => {
                                 <UserIcon className="w-10 h-10 text-muted-foreground" />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <h2 className="text-xl font-bold italic">@{user.username || 'trader'}</h2>
+                                <h2 className="text-xl font-bold italic">@{user.username || 'Guest'}</h2>
                                 <p className="text-sm text-muted-foreground">{user.email}</p>
                             </div>
                             <div className="mt-6 flex flex-col gap-2">

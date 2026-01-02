@@ -420,4 +420,161 @@ def main():
 if __name__ == "__main__":
     main()
 """
-        return python_script
+    @staticmethod
+    def generate_rnn_colab(robot_name, symbol, years, cloudinary_config):
+        """
+        Generates full Python code for training an RNN/LSTM model in Google Colab.
+        Includes data fetching from public sources (or mock), preprocessing, training,
+        and saves the model to Cloudinary.
+        """
+        
+        cloud_name = cloudinary_config.get('cloud_name', 'your_cloud_name')
+        api_key = cloudinary_config.get('api_key', 'your_api_key')
+        api_secret = cloudinary_config.get('api_secret', 'your_api_secret')
+
+        code = f"""
+# Google Colab RNN Trading Robot Trainer
+# Robot: {robot_name}
+# Symbol: {symbol}
+# Training Data: {years} year(s)
+
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+import yfinance as yf
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.preprocessing import MinMaxScaler
+import cloudinary
+import cloudinary.uploader
+
+# Cloudinary Setup
+cloudinary.config(
+  cloud_name = "{cloud_name}",
+  api_key = "{api_key}",
+  api_secret = "{api_secret}",
+  secure = True
+)
+
+# 1. Fetch Data
+print("Fetching {years} years of data for {symbol}...")
+ticker = "{symbol}"
+mapping = {
+    "EURUSD": "EURUSD=X",
+    "GBPUSD": "GBPUSD=X",
+    "USDJPY": "JPY=X",
+    "AUDUSD": "AUDUSD=X",
+    "USDCAD": "CAD=X",
+    "USDCHF": "CHF=X",
+    "NZDUSD": "NZDUSD=X",
+    "BTCUSD": "BTC-USD",
+    "ETHUSD": "ETH-USD",
+    "LTCUSD": "LTC-USD",
+    "XRPUSD": "XRP-USD",
+    "XAUUSD": "GC=F",
+    "XAGUSD": "SI=F",
+    "AAPL": "AAPL",
+    "GOOGL": "GOOGL",
+    "MSFT": "MSFT",
+    "AMZN": "AMZN",
+    "TSLA": "TSLA",
+    "NVDA": "NVDA",
+    "META": "META",
+    "NFLX": "NFLX",
+    "SPY": "SPY",
+    "QQQ": "QQQ"
+}
+ticker = mapping.get(ticker, ticker)
+
+end_date = datetime.now()
+start_date = end_date - timedelta(days={years}*365)
+df = yf.download(ticker, start=start_date, end=end_date)
+
+if df.empty:
+    print("Failed to fetch data. Using synthetic data for demonstration.")
+    dates = pd.date_range(end=datetime.now(), periods=2000)
+    df = pd.DataFrame(np.random.randn(2000, 1).cumsum(axis=0) + 100, index=dates, columns=['Close'])
+
+print(f"Data fetched: {{len(df)}} bars.")
+
+# 2. Preprocess
+data = df[['Close']].values
+scaler = MinMaxScaler(feature_range=(0, 1))
+scaled_data = scaler.fit_transform(data)
+
+prediction_days = 60
+x_train, y_train = [], []
+
+for x in range(prediction_days, len(scaled_data)):
+    x_train.append(scaled_data[x-prediction_days:x, 0])
+    y_train.append(scaled_data[x, 0])
+
+x_train, y_train = np.array(x_train), np.array(y_train)
+x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+
+# 3. Build Model
+model = Sequential([
+    LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 1)),
+    Dropout(0.2),
+    LSTM(units=50, return_sequences=True),
+    Dropout(0.2),
+    LSTM(units=50),
+    Dropout(0.2),
+    Dense(units=1)
+])
+
+model.compile(optimizer='adam', loss='mean_squared_error')
+print("Training model...")
+model.fit(x_train, y_train, epochs=25, batch_size=32)
+
+# 4. Save and Upload
+model_path = "{robot_name.replace(' ', '_')}_model.h5"
+model.save(model_path)
+print(f"Model saved locally to {{model_path}}")
+
+try:
+    print("Uploading model to Cloudinary...")
+    # Using resource_type='raw' for non-image files
+    upload_result = cloudinary.uploader.upload(model_path, 
+                                             resource_type="raw",
+                                             public_id=f"traderobots_models/{robot_name.replace(' ', '_')}")
+    model_url = upload_result['secure_url']
+    print("UPLOAD SUCCESSFUL!")
+    print(f"URL: {{model_url}}")
+    
+    # 5. Automated Callback to TradeRobots Backend
+    import requests
+    # THE USER SHOULD UPDATE THIS URL IF RUNNING ON A DIFFERENT SERVER
+    # For local development, use an ngrok URL or your local machine IP
+    # If deployed, use the Vercel/Heroku API URL.
+    BACKEND_URL = "http://localhost:8000" # Update this to your deployed backend URL
+    ROBOT_ID = "YOUR_ROBOT_ID" # This should be replaced by the backend during generation
+    
+    print(f"Syncing model URL with TradeRobots backend...")
+    response = requests.post(f"{{BACKEND_URL}}/api/robots/{{ROBOT_ID}}/save_rnn_model/", json={{"model_url": model_url}})
+    if response.status_code == 200:
+        print("Model synced successfully with TradeRobots!")
+    else:
+        print(f"Sync failed (Status {{response.status_code}}): {{response.text}}")
+    
+except Exception as e:
+    print(f"Upload/Sync failed: {{e}}")
+
+# Visualizing results
+predicted_prices = model.predict(x_train[-100:])
+predicted_prices = scaler.inverse_transform(predicted_prices)
+real_prices = data[-100:]
+
+plt.figure(figsize=(12,6))
+plt.plot(real_prices, color='black', label='Actual Price')
+plt.plot(predicted_prices, color='green', label='Predicted Price')
+plt.title(f'{{ticker}} Price Prediction - {robot_name}')
+plt.xlabel('Time')
+plt.ylabel('Price')
+plt.legend()
+plt.show()
+"""
+        return code

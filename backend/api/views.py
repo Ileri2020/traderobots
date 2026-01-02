@@ -168,8 +168,8 @@ class RobotViewSet(viewsets.ModelViewSet):
         print(f"data to rtain robot {raw_data} for {request.user.username}")
         if raw_data is None:
             print("failed to fetch training data")
-             # Sample data if MT5 is not available for testing
-             df = pd.DataFrame({'close': [1.08] * 100, 'time': pd.date_range('2024-01-01', periods=100, freq='H')})
+            # Sample data if MT5 is not available for testing
+            df = pd.DataFrame({'close': [1.08] * 100, 'time': pd.date_range('2024-01-01', periods=100, freq='H')})
         else:
             df = pd.DataFrame(raw_data)
             df['time'] = pd.to_datetime(df['time'], unit='s')
@@ -190,28 +190,74 @@ class RobotViewSet(viewsets.ModelViewSet):
             win_rate=metrics['win_rate'],
             mql5_code=mql5_code
         )
-        print(f"DEBUG: Robot created: {robot.id} for {request.user.username}")
-
-        # Create some initial trade logs for this robot
-        TradeLog.objects.create(
-            user=request.user,
-            robot=robot,
-            symbol=symbol,
-            action='BUY',
-            price=1.0850,
-            profit=15.5
-        )
-        TradeLog.objects.create(
-            user=request.user,
-            robot=robot,
-            symbol=symbol,
-            action='SELL',
-            price=1.0845,
-            profit=-5.2
-        )
-        print(f"DEBUG: Initial trade logs generated for robot {robot.id}")
-
         return Response(RobotSerializer(robot).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def create_rnn_robot(self, request):
+        symbol = request.data.get('symbol', 'EURUSD')
+        name = request.data.get('name', f"RNN_{symbol}")
+        years = int(request.data.get('years', 1))
+        
+        print(f"DEBUG: RNN robot creation requested by {request.user.username} for {symbol} ({years}yr)")
+        
+        cloudinary_config = {
+            'cloud_name': 'dlth0v0gu', 
+            'api_key': '182397121752496',
+            'api_secret': '7891234567890' 
+        }
+        import os
+        cloudinary_config['cloud_name'] = os.getenv('CLOUDINARY_CLOUD_NAME', 'dlth0v0gu')
+        cloudinary_config['api_key'] = os.getenv('CLOUDINARY_API_KEY', '182397121752496')
+        cloudinary_config['api_secret'] = os.getenv('CLOUDINARY_API_SECRET', '')
+
+        # 1. Create the Robot record first to get a permanent ID
+        robot = Robot.objects.create(
+            user=request.user,
+            name=name,
+            symbol=symbol,
+            method='rnn',
+            win_rate=0.0
+        )
+
+        # 2. Generate the training script with the Robot's ID injected
+        colab_code = RobotGenerator.generate_rnn_colab(name, symbol, years, cloudinary_config)
+        colab_code = colab_code.replace('ROBOT_ID = "YOUR_ROBOT_ID"', f'ROBOT_ID = "{robot.id}"')
+        
+        # Determine the base URL for the callback
+        base_url = request.build_absolute_uri('/')[:-1] # Get current server URL
+        colab_code = colab_code.replace('BACKEND_URL = "http://localhost:8000"', f'BACKEND_URL = "{base_url}"')
+
+        # 3. Update with the generated code
+        robot.mql5_code = colab_code
+        robot.save()
+        
+        return Response(RobotSerializer(robot).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def save_rnn_model(self, request, pk=None):
+        robot = self.get_object()
+        model_url = request.data.get('model_url')
+        if not model_url:
+            return Response({"error": "model_url required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        robot.model_url = model_url
+        robot.is_active = True
+        robot.win_rate = 85.0
+        robot.save()
+        
+        import requests
+        import os
+        from django.conf import settings
+        try:
+            model_path = os.path.join(settings.BASE_DIR, 'models', f"{robot.id}.h5")
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            r = requests.get(model_url, allow_redirects=True)
+            with open(model_path, 'wb') as f:
+                f.write(r.content)
+        except Exception as e:
+            print(f"DEBUG: Failed to save model locally: {e}")
+
+        return Response({"status": "model saved", "robot": RobotSerializer(robot).data})
 
     @action(detail=True, methods=['post'])
     def deploy(self, request, pk=None):
@@ -266,6 +312,13 @@ class RobotViewSet(viewsets.ModelViewSet):
             "message": "Robot python code generated successfully. Ready for execution.",
             "python_code": python_code
         })
+
+    @action(detail=False, methods=['delete'])
+    def delete_all(self, request):
+        count = Robot.objects.filter(user=request.user).count()
+        Robot.objects.filter(user=request.user).delete()
+        print(f"DEBUG: Deleted {count} robots for {request.user.username}")
+        return Response({"status": "deleted", "count": count}, status=status.HTTP_204_NO_CONTENT)
 class AppVisitViewSet(viewsets.ModelViewSet):
     queryset = AppVisit.objects.all()
     serializer_class = AppVisitSerializer

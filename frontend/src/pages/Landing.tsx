@@ -32,6 +32,7 @@ const Landing = () => {
     const [postContent, setPostContent] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [commentTexts, setCommentTexts] = useState<{ [key: number]: string }>({});
+    const userString = localStorage.getItem('user');
 
     useEffect(() => {
         fetchPosts();
@@ -124,41 +125,50 @@ const Landing = () => {
                 {/* Main Feed */}
                 <div className="lg:col-span-8 flex flex-col gap-6">
                     {/* Create Post Card */}
-                    <Card className="border-primary/10 bg-primary/5 shadow-none group">
-                        <CardContent className="pt-6">
-                            <div className="flex gap-4">
-                                <Avatar className="h-10 w-10 border border-primary/20">
-                                    <AvatarFallback className="bg-primary/10 text-primary font-bold">U</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 space-y-4">
-                                    <Textarea
-                                        placeholder="Analyze the markets or share your results..."
-                                        value={postContent}
-                                        onChange={(e) => setPostContent(e.target.value)}
-                                        className="min-h-[100px] bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-primary/30 resize-none text-base"
-                                    />
-                                    <div className="flex items-center justify-between pt-2">
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="sm" className="h-9 px-3 gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
-                                                <ImageIcon className="h-4 w-4" />
-                                                <span className="text-xs font-bold">Chart</span>
-                                            </Button>
-                                            <Button variant="ghost" size="sm" className="h-9 px-3 gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
-                                                <Video className="h-4 w-4" />
-                                                <span className="text-xs font-bold">Stream</span>
+                    {userString ? (
+                        <Card className="border-primary/10 bg-primary/5 shadow-none group">
+                            <CardContent className="pt-6">
+                                <div className="flex gap-4">
+                                    <Avatar className="h-10 w-10 border border-primary/20">
+                                        <AvatarFallback className="bg-primary/10 text-primary font-bold">U</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 space-y-4">
+                                        <Textarea
+                                            placeholder="Analyze the markets or share your results..."
+                                            value={postContent}
+                                            onChange={(e) => setPostContent(e.target.value)}
+                                            className="min-h-[100px] bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-primary/30 resize-none text-base"
+                                        />
+                                        <div className="flex items-center justify-between pt-2">
+                                            <div className="flex gap-1">
+                                                <Button variant="ghost" size="sm" className="h-9 px-3 gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
+                                                    <ImageIcon className="h-4 w-4" />
+                                                    <span className="text-xs font-bold">Chart</span>
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-9 px-3 gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all">
+                                                    <Video className="h-4 w-4" />
+                                                    <span className="text-xs font-bold">Stream</span>
+                                                </Button>
+                                            </div>
+                                            <Button
+                                                onClick={handleCreatePost}
+                                                className="h-9 px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:scale-105 transition-transform"
+                                            >
+                                                Post Insight
                                             </Button>
                                         </div>
-                                        <Button
-                                            onClick={handleCreatePost}
-                                            className="h-9 px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:scale-105 transition-transform"
-                                        >
-                                            Post Insight
-                                        </Button>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="border-dashed bg-muted/20">
+                            <CardContent className="py-10 text-center space-y-4">
+                                <p className="text-sm text-muted-foreground">Join the community to share your trading insights.</p>
+                                <Button onClick={() => navigate('/login')} size="sm" className="font-bold">Login to Post</Button>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Posts List */}
                     {isLoading ? (

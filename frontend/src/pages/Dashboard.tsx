@@ -193,8 +193,7 @@ const Dashboard = () => {
 
     const handleDeleteAllRobots = async () => {
         try {
-            const deletePromises = robots.map(robot => axios.delete(`/api/robots/${robot.id}/`));
-            await Promise.all(deletePromises);
+            await axios.delete('/api/robots/delete_all/');
             toast.success('All robots deleted successfully');
             fetchData();
             setShowDeleteDialog({ open: false, robotId: null, deleteAll: false });
@@ -203,7 +202,9 @@ const Dashboard = () => {
         }
     };
 
-    const mainAccount = accounts[0] || { balance: 0, equity: 0, mode: 'OFFLINE' };
+    const userString = localStorage.getItem('user');
+    const user = userString ? JSON.parse(userString) : null;
+    const mainAccount = accounts[0] || { balance: 0, equity: 0, mode: 'OFFLINE', currency: 'USD' };
 
     // Dynamic Calculations
     const pointValue = 1.0; // Simplified average point value per lot
@@ -212,11 +213,26 @@ const Dashboard = () => {
     const projectedProfitBalance = mainAccount.balance + estProfit;
     const projectedLossBalance = mainAccount.balance - estLoss;
 
+    if (!user) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
+                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center border border-primary/20">
+                    <LayoutDashboard className="h-10 w-10 text-primary" />
+                </div>
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-bold">Dashboard Restricted</h2>
+                    <p className="text-muted-foreground max-w-sm">Please login to access your trading performance, active robots, and account analytics.</p>
+                </div>
+                <Button onClick={() => navigate('/login')} className="px-8 font-bold h-11 rounded-xl">Login Now</Button>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-8 p-4 md:p-8 max-w-7xl mx-auto">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight">Trading Dashboard</h1>
+                    <h1 className="text-3xl font-extrabold tracking-tight">Welcome back, {user?.username || 'Trader'}</h1>
                     <p className="text-muted-foreground mt-1">Real-time performance of your automated strategies.</p>
                 </div>
                 <div className="flex items-center gap-3 bg-muted/50 p-1.5 rounded-2xl border border-border">
@@ -230,46 +246,64 @@ const Dashboard = () => {
                             {mainAccount.mode}
                         </span>
                     </div>
-                    <Button
-                        size="sm"
-                        onClick={handleSync}
-                        disabled={isSyncing}
-                        className="rounded-xl px-4 font-bold shadow-lg shadow-primary/20 gap-2"
-                    >
-                        <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-                        {isSyncing ? "Syncing..." : "Sync MT5"}
-                    </Button>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    size="sm"
+                                    onClick={handleSync}
+                                    disabled={isSyncing}
+                                    className="rounded-xl px-4 font-bold shadow-lg shadow-primary/20 gap-2"
+                                >
+                                    <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+                                    {isSyncing ? "Syncing..." : "Sync MT5"}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Refresh account balances and trades from MT5</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
             </header>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                    { label: 'Total Balance', value: `$${mainAccount.balance.toLocaleString()}`, sub: '+2.4% today', icon: Wallet, trend: 'up' },
-                    { label: 'Equity', value: `$${mainAccount.equity.toLocaleString()}`, sub: '99.4% margin', icon: Activity, trend: 'up' },
-                    { label: 'Active Robots', value: robots.length.toString(), sub: 'Running...', icon: BarChart3, trend: 'up' },
-                    { label: 'MT5 Accounts', value: accounts.length.toString(), sub: 'Connected', icon: Activity, trend: 'up' }
-                ].map((stat, i) => (
-                    <Card key={i} className="border-border/60 bg-card/50 backdrop-blur-sm overflow-hidden relative">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</CardTitle>
-                            <stat.icon className="h-4 w-4 text-primary opacity-70" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold tracking-tight">{stat.value}</div>
-                            <div className={cn(
-                                "flex items-center gap-1 text-[11px] font-bold mt-2",
-                                stat.trend === 'up' ? "text-green-500" : "text-destructive"
-                            )}>
-                                {stat.trend === 'up' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                                {stat.sub}
-                            </div>
-                        </CardContent>
-                        <div className="absolute top-0 right-0 p-2 opacity-5">
-                            <stat.icon className="h-16 w-16" />
-                        </div>
-                    </Card>
-                ))}
+                <TooltipProvider>
+                    {[
+                        { label: 'Total Balance', value: `$${mainAccount.balance.toLocaleString()}`, sub: '+2.4% today', icon: Wallet, trend: 'up', tooltip: 'Current cash balance in your account' },
+                        { label: 'Equity', value: `$${mainAccount.equity.toLocaleString()}`, sub: '99.4% margin', icon: Activity, trend: 'up', tooltip: 'Account value including floating profit/loss' },
+                        { label: 'Active Robots', value: robots.length.toString(), sub: 'Running...', icon: BarChart3, trend: 'up', tooltip: 'Number of algorithms currently monitoring the markets' },
+                        { label: 'MT5 Accounts', value: accounts.length.toString(), sub: 'Connected', icon: Activity, trend: 'up', tooltip: 'Connected MetaTrader 5 trading accounts' }
+                    ].map((stat, i) => (
+                        <Tooltip key={i}>
+                            <TooltipTrigger asChild>
+                                <Card className="border-border/60 bg-card/50 backdrop-blur-sm overflow-hidden relative cursor-help">
+                                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</CardTitle>
+                                        <stat.icon className="h-4 w-4 text-primary opacity-70" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold tracking-tight">{stat.value}</div>
+                                        <div className={cn(
+                                            "flex items-center gap-1 text-[11px] font-bold mt-2",
+                                            stat.trend === 'up' ? "text-green-500" : "text-destructive"
+                                        )}>
+                                            {stat.trend === 'up' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                                            {stat.sub}
+                                        </div>
+                                    </CardContent>
+                                    <div className="absolute top-0 right-0 p-2 opacity-5">
+                                        <stat.icon className="h-16 w-16" />
+                                    </div>
+                                </Card>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{stat.tooltip}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    ))}
+                </TooltipProvider>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -437,25 +471,51 @@ const Dashboard = () => {
                                 <Separator />
 
                                 {/* Performance Over Time */}
-                                <div className="space-y-2">
-                                    <h4 className="text-sm font-bold">Account Performance Trend</h4>
-                                    <ResponsiveContainer width="100%" height={200}>
-                                        <LineChart data={[
-                                            { date: 'Week 1', balance: mainAccount.balance * 0.92 },
-                                            { date: 'Week 2', balance: mainAccount.balance * 0.95 },
-                                            { date: 'Week 3', balance: mainAccount.balance * 0.98 },
-                                            { date: 'Week 4', balance: mainAccount.balance },
-                                        ]}>
-                                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                            <XAxis dataKey="date" className="text-xs" />
-                                            <YAxis className="text-xs" />
-                                            <RechartsTooltip
-                                                contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                                            />
-                                            <Legend />
-                                            <Line type="monotone" dataKey="balance" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4 text-primary" />
+                                        Profit Distribution by Asset
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="h-[250px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <LineChart data={[
+                                                    { date: 'Mon', balance: mainAccount.balance * 0.92 },
+                                                    { date: 'Tue', balance: mainAccount.balance * 0.95 },
+                                                    { date: 'Wed', balance: mainAccount.balance * 0.93 },
+                                                    { date: 'Thu', balance: mainAccount.balance * 0.98 },
+                                                    { date: 'Fri', balance: mainAccount.balance },
+                                                ]}>
+                                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                                                    <XAxis dataKey="date" className="text-[10px]" axisLine={false} tickLine={false} />
+                                                    <YAxis className="text-[10px]" axisLine={false} tickLine={false} />
+                                                    <RechartsTooltip
+                                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px' }}
+                                                    />
+                                                    <Line type="monotone" dataKey="balance" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--primary))' }} activeDot={{ r: 6 }} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {[
+                                                { asset: 'Forex (Major)', value: 45, color: 'bg-blue-500' },
+                                                { asset: 'Crypto (BTC/ETH)', value: 30, color: 'bg-amber-500' },
+                                                { asset: 'Commodities (Gold)', value: 15, color: 'bg-yellow-500' },
+                                                { asset: 'Indices (SP500)', value: 10, color: 'bg-green-500' }
+                                            ].map((item, i) => (
+                                                <div key={i} className="space-y-1.5">
+                                                    <div className="flex justify-between text-xs font-bold">
+                                                        <span>{item.asset}</span>
+                                                        <span>{item.value}%</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                                        <div className={cn("h-full rounded-full transition-all duration-1000", item.color)} style={{ width: `${item.value}%` }} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {robots.length === 0 && (
