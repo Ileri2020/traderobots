@@ -202,9 +202,9 @@ class RobotViewSet(viewsets.ModelViewSet):
         
         import os
         cloudinary_config = {
-            'cloud_name': os.getenv('CLOUDINARY_CLOUD_NAME', 'dc5khnuiu'),
-            'api_key': os.getenv('CLOUDINARY_API_KEY', '474889658884221'),
-            'api_secret': os.getenv('CLOUDINARY_API_SECRET', 'iCF8R9GNc0IAPV_mcTy4gaxpn2A')
+            'cloud_name': os.getenv('CLOUDINARY_CLOUD_NAME'),
+            'api_key': os.getenv('CLOUDINARY_API_KEY'),
+            'api_secret': os.getenv('CLOUDINARY_API_SECRET')
         }
 
         # 1. Create the Robot record first to get a permanent ID

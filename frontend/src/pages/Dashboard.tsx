@@ -31,7 +31,8 @@ import {
     Zap,
     TrendingUp,
     Code,
-    Trash2
+    Trash2,
+    LayoutDashboard
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {

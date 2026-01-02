@@ -428,9 +428,9 @@ if __name__ == "__main__":
         and saves the model to Cloudinary.
         """
         import os
-        cloud_name = cloudinary_config.get('cloud_name') or os.getenv('CLOUDINARY_CLOUD_NAME', 'dc5khnuiu')
-        api_key = cloudinary_config.get('api_key') or os.getenv('CLOUDINARY_API_KEY', '474889658884221')
-        api_secret = cloudinary_config.get('api_secret') or os.getenv('CLOUDINARY_API_SECRET', 'iCF8R9GNc0IAPV_mcTy4gaxpn2A')
+        cloud_name = cloudinary_config.get('cloud_name') or os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = cloudinary_config.get('api_key') or os.getenv('CLOUDINARY_API_KEY')
+        api_secret = cloudinary_config.get('api_secret') or os.getenv('CLOUDINARY_API_SECRET')
 
         code = f"""
 # Google Colab RNN Trading Robot Trainer
