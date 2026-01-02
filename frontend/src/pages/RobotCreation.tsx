@@ -59,6 +59,7 @@ const RobotCreation = () => {
     const [deployConfig, setDeployConfig] = useState({ accountId: '', lot: 0.01, sl: 30, tp: 60 });
     const [isDeploying, setIsDeploying] = useState(false);
     const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
+    const [robotName, setRobotName] = useState('My AI Alpha Bot');
 
     const [configs, setConfigs] = useState<any>({
         symbol: 'EURUSD',
@@ -119,6 +120,7 @@ const RobotCreation = () => {
             }
 
             const payload = {
+                name: robotName,
                 symbol: configs.symbol,
                 timeframe: configs.timeframe,
                 indicators: indicators,
@@ -266,12 +268,23 @@ const RobotCreation = () => {
                         <CardContent className="flex flex-col gap-6">
                             <div className="space-y-4">
                                 <div className="space-y-2">
+                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Robot Identity</Label>
+                                    <Input
+                                        placeholder="Robot name..."
+                                        value={robotName}
+                                        onChange={(e) => setRobotName(e.target.value)}
+                                        className="h-11 font-bold"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Market Asset</Label>
                                     <Select defaultValue={configs.symbol} onValueChange={(val) => setConfigs({ ...configs, symbol: val })}>
                                         <SelectTrigger className="w-full h-11 font-bold">
                                             <SelectValue placeholder="Select Pair" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="max-h-[300px]">
+                                            {/* Major Forex Pairs */}
                                             <SelectItem value="EURUSD">EURUSD (Euro/USD)</SelectItem>
                                             <SelectItem value="GBPUSD">GBPUSD (Pound/USD)</SelectItem>
                                             <SelectItem value="USDJPY">USDJPY (USD/Yen)</SelectItem>
@@ -279,9 +292,45 @@ const RobotCreation = () => {
                                             <SelectItem value="USDCAD">USDCAD (USD/Cad)</SelectItem>
                                             <SelectItem value="USDCHF">USDCHF (USD/Swiss)</SelectItem>
                                             <SelectItem value="NZDUSD">NZDUSD (Nzd/USD)</SelectItem>
+
+                                            {/* Cross Pairs */}
+                                            <SelectItem value="EURGBP">EURGBP (Euro/Pound)</SelectItem>
+                                            <SelectItem value="EURJPY">EURJPY (Euro/Yen)</SelectItem>
+                                            <SelectItem value="GBPJPY">GBPJPY (Pound/Yen)</SelectItem>
+                                            <SelectItem value="AUDJPY">AUDJPY (Aud/Yen)</SelectItem>
+                                            <SelectItem value="NZDCAD">NZDCAD (Nzd/Cad)</SelectItem>
+                                            <SelectItem value="CADCHF">CADCHF (Cad/Swiss)</SelectItem>
+                                            <SelectItem value="EURCHF">EURCHF (Euro/Swiss)</SelectItem>
+                                            <SelectItem value="GBPCHF">GBPCHF (Pound/Swiss)</SelectItem>
+                                            <SelectItem value="EURAUD">EURAUD (Euro/Aud)</SelectItem>
+                                            <SelectItem value="GBPAUD">GBPAUD (Pound/Aud)</SelectItem>
+
+                                            {/* Cryptocurrencies */}
                                             <SelectItem value="BTCUSD">BTCUSD (Bitcoin/USD)</SelectItem>
+                                            <SelectItem value="ETHUSD">ETHUSD (Ethereum/USD)</SelectItem>
+                                            <SelectItem value="LTCUSD">LTCUSD (Litecoin/USD)</SelectItem>
+                                            <SelectItem value="XRPUSD">XRPUSD (Ripple/USD)</SelectItem>
+                                            <SelectItem value="ADAUSD">ADAUSD (Cardano/USD)</SelectItem>
+                                            <SelectItem value="DOTUSD">DOTUSD (Polkadot/USD)</SelectItem>
+                                            <SelectItem value="SOLUSD">SOLUSD (Solana/USD)</SelectItem>
+                                            <SelectItem value="MATICUSD">MATICUSD (Polygon/USD)</SelectItem>
+                                            <SelectItem value="AVAXUSD">AVAXUSD (Avalanche/USD)</SelectItem>
+
+                                            {/* Commodities */}
                                             <SelectItem value="XAUUSD">XAUUSD (Gold/USD)</SelectItem>
                                             <SelectItem value="XAGUSD">XAGUSD (Silver/USD)</SelectItem>
+
+                                            {/* Stocks */}
+                                            <SelectItem value="AAPL">AAPL (Apple)</SelectItem>
+                                            <SelectItem value="GOOGL">GOOGL (Google)</SelectItem>
+                                            <SelectItem value="MSFT">MSFT (Microsoft)</SelectItem>
+                                            <SelectItem value="AMZN">AMZN (Amazon)</SelectItem>
+                                            <SelectItem value="TSLA">TSLA (Tesla)</SelectItem>
+                                            <SelectItem value="NVDA">NVDA (Nvidia)</SelectItem>
+                                            <SelectItem value="META">META (Meta)</SelectItem>
+                                            <SelectItem value="NFLX">NFLX (Netflix)</SelectItem>
+                                            <SelectItem value="SPY">SPY (S&P 500 ETF)</SelectItem>
+                                            <SelectItem value="QQQ">QQQ (Nasdaq ETF)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

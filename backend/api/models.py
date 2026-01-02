@@ -38,6 +38,7 @@ class Robot(models.Model):
         ('ml', 'RNN Machine Learning'),
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='robots')
+    name = models.CharField(max_length=100, default='Unnamed Robot')
     symbol = models.CharField(max_length=20)
     method = models.CharField(max_length=20, choices=METHODS)
     indicators = models.JSONField(default=list)

@@ -10,4 +10,8 @@ sqlparse==0.2.4
 numpy
 pandas
 dnspython
+MetaTrader5
+tensorflow
+pandas_ta
+certifi
 

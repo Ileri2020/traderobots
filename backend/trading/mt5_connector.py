@@ -13,6 +13,7 @@ class MT5Connector:
     @staticmethod
     def initialize():
         if mt5 is None:
+            print("unable to load mt5")
             return False
             
         try:
@@ -36,14 +37,7 @@ class MT5Connector:
     @staticmethod
     def get_account_info():
         if not MT5Connector.initialize():
-            # Mock data for frontend development if MT5 fails
-            return {
-                'login': 100690024,
-                'balance': 10450.00,
-                'equity': 10450.00,
-                'server': 'DemoServer',
-                'currency': 'USD'
-            }
+            return None
         
         account_info = mt5.account_info()
         if account_info is None:
@@ -54,22 +48,7 @@ class MT5Connector:
     @staticmethod
     def get_market_data(symbol, timeframe, n_bars=1000):
         if not MT5Connector.initialize():
-            # Return synthetic data for testing
-            import time
-            current_time = int(time.time())
-            rates = []
-            price = 1.0800
-            for i in range(n_bars):
-                price += np.random.normal(0, 0.001)
-                rates.append({
-                    'time': current_time - (n_bars - i) * 3600,
-                    'open': price,
-                    'high': price + 0.0005,
-                    'low': price - 0.0005,
-                    'close': price,
-                    'tick_volume': 100
-                })
-            return rates
+            return None
             
         tf_map = {
             'M1': mt5.TIMEFRAME_M1,

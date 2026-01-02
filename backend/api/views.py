@@ -148,11 +148,12 @@ class RobotViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def create_winrate_robot(self, request):
         symbol = request.data.get('symbol', 'EURUSD')
+        name = request.data.get('name', f"Bot_{symbol}")
         timeframe = request.data.get('timeframe', 'H1')
         indicators = request.data.get('indicators', []) # ['rsi', 'ma', 'macd']
         risk = request.data.get('risk', {'lot': 0.01, 'sl': 30, 'tp': 60})
         
-        print(f"DEBUG: New robot creation called by {request.user.username} for {symbol}")
+        print(f"DEBUG: New robot creation called by {request.user.username} for {symbol} named {name}")
         
         # Build rules from requested indicators
         rules = {}
@@ -164,21 +165,24 @@ class RobotViewSet(viewsets.ModelViewSet):
             rules['macd'] = {}
 
         raw_data = MT5Connector.get_market_data(symbol, timeframe, n_bars=1000)
+        print(f"data to rtain robot {raw_data} for {request.user.username}")
         if raw_data is None:
+            print("failed to fetch training data")
              # Sample data if MT5 is not available for testing
              df = pd.DataFrame({'close': [1.08] * 100, 'time': pd.date_range('2024-01-01', periods=100, freq='H')})
         else:
             df = pd.DataFrame(raw_data)
             df['time'] = pd.to_datetime(df['time'], unit='s')
-        
+
         bt = Backtester(df, rules)
         trades = bt.run()
         metrics = bt.compute_metrics(trades)
         
-        mql5_code = RobotGenerator.generate_mql5(f"Bot_{symbol}_{timeframe}", symbol, timeframe, rules, risk)
+        mql5_code = RobotGenerator.generate_mql5(name, symbol, timeframe, rules, risk)
         
         robot = Robot.objects.create(
             user=request.user,
+            name=name,
             symbol=symbol,
             method='winrate',
             indicators=indicators,

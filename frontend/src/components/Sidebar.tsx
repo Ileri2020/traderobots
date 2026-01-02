@@ -96,11 +96,13 @@ const SidebarContent = ({ setOpen }: { setOpen?: (open: boolean) => void }) => {
                 </button>
             </div>
 
-            <div className="mt-8 mx-4 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                <p className="text-xs text-center text-muted-foreground">
-                    @{user?.username || 'trader_ceo'}
-                </p>
-            </div>
+            {user && (
+                <div className="mt-8 mx-4 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                    <p className="text-xs text-center text-muted-foreground">
+                        @{user.username}
+                    </p>
+                </div>
+            )}
         </div>
     );
 };
