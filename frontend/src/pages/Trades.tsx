@@ -30,8 +30,21 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
+interface Indicator {
+    name: string;
+}
+
+interface Robot {
+    id: string;
+    user_name: string;
+    symbol: string;
+    win_rate: number;
+    method: string;
+    indicators?: Indicator[];
+}
+
 const Trades = () => {
-    const [robots, setRobots] = useState<any[]>([]);
+    const [robots, setRobots] = useState<Robot[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
 
@@ -50,7 +63,7 @@ const Trades = () => {
         }
     };
 
-    const handleCopyBot = (robot: any) => {
+    const handleCopyBot = (robot: Robot) => {
         toast.promise(
             new Promise((resolve) => setTimeout(resolve, 1500)),
             {
@@ -120,7 +133,7 @@ const Trades = () => {
 
                             <CardContent className="space-y-6">
                                 <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-[10px]">
-                                    {robot.indicators?.map((tag: any) => (
+                                    {robot.indicators?.map((tag: Indicator) => (
                                         <Badge key={tag.name} variant="secondary" className="bg-muted/50 font-bold py-0 h-5 px-1.5 opacity-70 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                                             {tag.name}
                                         </Badge>

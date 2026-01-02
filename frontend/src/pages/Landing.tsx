@@ -25,10 +25,35 @@ import {
     Cpu
 } from 'lucide-react';
 
+interface Post {
+    id: number;
+    user_name: string;
+    content: string;
+    likes_count: number;
+    comments_count: number;
+    media_urls?: string[];
+    comments?: Array<{
+        id: number;
+        user_name: string;
+        content: string;
+        created_at: string;
+    }>;
+    created_at: string;
+}
+
+interface Robot {
+    id: string;
+    name?: string;
+    user_name: string;
+    symbol: string;
+    win_rate: number;
+    method: string;
+}
+
 const Landing = () => {
     const navigate = useNavigate();
-    const [posts, setPosts] = useState<any[]>([]);
-    const [trendingRobots, setTrendingRobots] = useState<any[]>([]);
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [trendingRobots, setTrendingRobots] = useState<Robot[]>([]);
     const [postContent, setPostContent] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [commentTexts, setCommentTexts] = useState<{ [key: number]: string }>({});

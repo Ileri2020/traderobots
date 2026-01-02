@@ -72,15 +72,47 @@ import {
 } from 'recharts';
 
 
+interface TradingAccount {
+    id: string;
+    balance: number;
+    equity: number;
+    mode: string;
+    currency: string;
+}
+
+interface Robot {
+    id: string;
+    name: string;
+    symbol: string;
+    method: string;
+    win_rate: number;
+    is_active?: boolean;
+    mql5_code?: string;
+    python_code?: string;
+    lot?: number;
+    sl?: number;
+    tp?: number;
+}
+
+interface TradeLog {
+    id: string;
+    timestamp: string;
+    action: string;
+    robot_name: string;
+    profit?: number;
+    symbol?: string;
+    price?: number;
+}
+
 const Dashboard = () => {
-    const [accounts, setAccounts] = useState<any[]>([]);
-    const [robots, setRobots] = useState<any[]>([]);
-    const [tradeLogs, setTradeLogs] = useState<any[]>([]);
+    const [accounts, setAccounts] = useState<TradingAccount[]>([]);
+    const [robots, setRobots] = useState<Robot[]>([]);
+    const [tradeLogs, setTradeLogs] = useState<TradeLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
 
     // New State for Robot Control
-    const [selectedRobot, setSelectedRobot] = useState<any>(null);
+    const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
     const [showTradeModal, setShowTradeModal] = useState(false);
     const [tradeConfig, setTradeConfig] = useState({ lot: 0.1, sl: 300, tp: 600 });
     const [isDeploying, setIsDeploying] = useState(false);

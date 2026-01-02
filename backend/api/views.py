@@ -221,7 +221,12 @@ class RobotViewSet(viewsets.ModelViewSet):
         colab_code = colab_code.replace('ROBOT_ID = "YOUR_ROBOT_ID"', f'ROBOT_ID = "{robot.id}"')
         
         # Determine the base URL for the callback
-        base_url = request.build_absolute_uri('/')[:-1] # Get current server URL
+        env_server_url = os.getenv('SERVER_URL')
+        if env_server_url:
+            base_url = f"https://{env_server_url}" if not env_server_url.startswith('http') else env_server_url
+        else:
+            base_url = request.build_absolute_uri('/')[:-1] # Fallback to current server URL
+            
         colab_code = colab_code.replace('BACKEND_URL = "http://localhost:8000"', f'BACKEND_URL = "{base_url}"')
 
         # 3. Update with the generated code

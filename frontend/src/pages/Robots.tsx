@@ -25,8 +25,24 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface Robot {
+    id: string;
+    symbol: string;
+    method: string;
+    win_rate: number;
+    mql5_code?: string;
+    indicators?: string[];
+    risk_settings?: {
+        lot: string;
+        sl: number;
+        tp: number;
+    };
+    user: string;
+    created_at: string;
+}
+
 const Robots = () => {
-    const [robots, setRobots] = useState<any[]>([]);
+    const [robots, setRobots] = useState<Robot[]>([]);
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('win_rate');
     const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
@@ -49,7 +65,7 @@ const Robots = () => {
         }
     };
 
-    const handleDownloadRobot = (robot: any) => {
+    const handleDownloadRobot = (robot: Robot) => {
         if (!robot.mql5_code) {
             toast.error('MQL5 code not available for this robot');
             return;

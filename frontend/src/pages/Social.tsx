@@ -16,15 +16,27 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface Post {
+    id: number;
+    user_name: string;
+    content: string;
+    likes_count: number;
+    comments_count: number;
+    created_at: string;
+    media_urls?: string[];
+    comments?: Array<{
+        id: number;
+        user_name: string;
+        content: string;
+        created_at: string;
+    }>;
+}
+
 const Social = () => {
-    const [posts, setPosts] = useState<any[]>([]);
+    const [posts, setPosts] = useState<Post[]>([]);
     const [newPost, setNewPost] = useState('');
     const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-    useEffect(() => {
-        fetchPosts();
-    }, []);
 
     const fetchPosts = async () => {
         try {
@@ -39,6 +51,10 @@ const Social = () => {
             });
         }
     };
+
+    useEffect(() => {
+        fetchPosts();
+    }, []);
 
     const handleCreatePost = async () => {
         if (!newPost.trim()) return;
