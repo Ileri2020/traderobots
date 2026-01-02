@@ -200,15 +200,12 @@ class RobotViewSet(viewsets.ModelViewSet):
         
         print(f"DEBUG: RNN robot creation requested by {request.user.username} for {symbol} ({years}yr)")
         
-        cloudinary_config = {
-            'cloud_name': 'dlth0v0gu', 
-            'api_key': '182397121752496',
-            'api_secret': '7891234567890' 
-        }
         import os
-        cloudinary_config['cloud_name'] = os.getenv('CLOUDINARY_CLOUD_NAME', 'dlth0v0gu')
-        cloudinary_config['api_key'] = os.getenv('CLOUDINARY_API_KEY', '182397121752496')
-        cloudinary_config['api_secret'] = os.getenv('CLOUDINARY_API_SECRET', '')
+        cloudinary_config = {
+            'cloud_name': os.getenv('CLOUDINARY_CLOUD_NAME', 'dc5khnuiu'),
+            'api_key': os.getenv('CLOUDINARY_API_KEY', '474889658884221'),
+            'api_secret': os.getenv('CLOUDINARY_API_SECRET', 'iCF8R9GNc0IAPV_mcTy4gaxpn2A')
+        }
 
         # 1. Create the Robot record first to get a permanent ID
         robot = Robot.objects.create(

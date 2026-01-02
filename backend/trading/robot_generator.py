@@ -427,10 +427,10 @@ if __name__ == "__main__":
         Includes data fetching from public sources (or mock), preprocessing, training,
         and saves the model to Cloudinary.
         """
-        
-        cloud_name = cloudinary_config.get('cloud_name', 'your_cloud_name')
-        api_key = cloudinary_config.get('api_key', 'your_api_key')
-        api_secret = cloudinary_config.get('api_secret', 'your_api_secret')
+        import os
+        cloud_name = cloudinary_config.get('cloud_name') or os.getenv('CLOUDINARY_CLOUD_NAME', 'dc5khnuiu')
+        api_key = cloudinary_config.get('api_key') or os.getenv('CLOUDINARY_API_KEY', '474889658884221')
+        api_secret = cloudinary_config.get('api_secret') or os.getenv('CLOUDINARY_API_SECRET', 'iCF8R9GNc0IAPV_mcTy4gaxpn2A')
 
         code = f"""
 # Google Colab RNN Trading Robot Trainer
