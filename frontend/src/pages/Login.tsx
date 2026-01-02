@@ -25,8 +25,10 @@ const Login = () => {
             localStorage.setItem('user', JSON.stringify(response.data));
             toast.success('Login successful!');
             navigate('/');
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Login failed');
+        } catch (error) {
+            const err = error as any;
+            const msg = err.response?.data?.error || 'Login failed';
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }
@@ -39,8 +41,10 @@ const Login = () => {
             localStorage.setItem('user', JSON.stringify(response.data.user));
             toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} login successful!`);
             navigate('/');
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || `${platform} login failed`);
+        } catch (error) {
+            const err = error as any;
+            const msg = err.response?.data?.error || `${platform} login failed`;
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }

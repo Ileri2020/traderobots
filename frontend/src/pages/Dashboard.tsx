@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import {
     Card,
     CardContent,
@@ -105,6 +106,7 @@ interface TradeLog {
 }
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const [accounts, setAccounts] = useState<TradingAccount[]>([]);
     const [robots, setRobots] = useState<Robot[]>([]);
     const [tradeLogs, setTradeLogs] = useState<TradeLog[]>([]);

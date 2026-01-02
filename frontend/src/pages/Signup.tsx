@@ -26,8 +26,9 @@ const Signup = () => {
             });
             toast.success('Account created! Please log in.');
             navigate('/login');
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Signup failed');
+        } catch (error) {
+            const err = error as any;
+            toast.error(err.response?.data?.error || 'Signup failed');
         } finally {
             setIsLoading(false);
         }
