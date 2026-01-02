@@ -54,7 +54,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface IndicatorConfig {
     active: boolean;
@@ -366,7 +366,7 @@ const RobotCreation = () => {
                                 <Settings2 className="h-4 w-4" /> Strategy Designer
                             </CardTitle>
                             <CardDescription>Select strategy type and configure parameters.</CardDescription>
-                            <Tabs defaultValue="winrate" onValueChange={(val) => setStrategyMode(val as any)} className="w-full mt-4">
+                            <Tabs defaultValue="winrate" onValueChange={(val: string) => setStrategyMode(val as any)} className="w-full mt-4">
                                 <TabsList className="grid w-full grid-cols-2">
                                     <TabsTrigger value="winrate">Logic-Based</TabsTrigger>
                                     <TabsTrigger value="rnn">Neural (RNN)</TabsTrigger>
