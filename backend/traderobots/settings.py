@@ -90,6 +90,7 @@ DATABASES = {
         'ENGINE': 'djongo',
         'NAME': 'traderobots',
         'ENFORCE_SCHEMA': False,
+        'HOST': os.getenv('MONGO_URI'),
         'CLIENT': {
             'host': os.getenv('MONGO_URI'),
             'connectTimeoutMS': 5000,
