@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,7 +38,7 @@ const Social = () => {
     const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-    const fetchPosts = async () => {
+    const fetchPosts = useCallback(async () => {
         try {
             const response = await axios.get('/api/social/posts/');
             setPosts(response.data);
@@ -50,11 +50,11 @@ const Social = () => {
                 description: 'Unable to retrieve community posts.'
             });
         }
-    };
+    }, [] );
 
     useEffect(() => {
         fetchPosts();
-    }, []);
+    }, [fetchPosts]);
 
     const handleCreatePost = async () => {
         if (!newPost.trim()) return;
@@ -67,7 +67,8 @@ const Social = () => {
             toast.success('Post created successfully!');
             fetchPosts();
         } catch (error: any) {
-            const msg = error.response?.data?.error || 'Failed to create post';
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const msg = (error as any).response?.data?.error || 'Failed to create post';
             setErrorDialog({
                 open: true,
                 title: 'Post Failed',
@@ -197,7 +198,7 @@ const Social = () => {
                                     {/* Comments */}
                                     {post.comments && post.comments.length > 0 && (
                                         <div className="flex flex-col gap-3 pt-3 border-t border-border/30 mt-2">
-                                            {post.comments.map((comment: any) => (
+                                            {post.comments.map((comment) => (
                                                 <div key={comment.id} className="flex items-start gap-3 bg-muted/30 p-3 rounded-xl">
                                                     <Avatar className="h-8 w-8 border border-border">
                                                         <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.user_name}`} />

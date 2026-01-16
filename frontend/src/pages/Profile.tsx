@@ -41,10 +41,29 @@ const Profile = () => {
     const [accNum, setAccNum] = useState('');
     const [accPass, setAccPass] = useState('');
     const [accServer, setAccServer] = useState('');
+    const [accBroker, setAccBroker] = useState('');
+
+    // Error Dialog State
+    const [errorDialog, setErrorDialog] = useState<string | null>(null);
+    const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
 
     useEffect(() => {
         fetchProfileData();
     }, []);
+
+    const [accountStates, setAccountStates] = useState<Record<number, any>>({});
+    
+    useEffect(() => {
+        if (accounts.length > 0) {
+            accounts.forEach(acc => {
+                axios.get(`/api/accounts/${acc.id}/state/`)
+                    .then(res => {
+                        setAccountStates(prev => ({ ...prev, [acc.id]: res.data }));
+                    })
+                    .catch(err => console.error(`Failed to fetch state for ${acc.id}`, err));
+            });
+        }
+    }, [accounts]);
 
     const fetchProfileData = async () => {
         try {
@@ -62,18 +81,38 @@ const Profile = () => {
     const handleConnectAccount = async () => {
         try {
             await axios.post('/api/accounts/', {
-                account_number: accNum,
+                mt5_login: accNum,
                 password: accPass,
-                server: accServer,
-                mode: 'demo' // Default for now
+                mt5_server: accServer,
+                broker: accBroker,
+                is_demo: true, 
+                is_active: true
             });
             toast.success('Account linked successfully!');
+            setIsLinkDialogOpen(false); // Close dialog
             fetchProfileData();
             setAccNum('');
             setAccPass('');
             setAccServer('');
-        } catch (error) {
-            toast.error('Failed to link account. check credentials.');
+            setAccBroker('');
+        } catch (error: any) {
+            // Show detailed error in popup
+            console.error(error);
+            const errorData = error.response?.data;
+            let errorMsg = 'Failed to link account.';
+            
+            if (errorData) {
+               if (typeof errorData === 'object') {
+                   // Clean up DRF errors like {"mt5_login": ["This field is required."]}
+                   errorMsg = Object.entries(errorData)
+                    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : v}`)
+                    .join('\n');
+               } else {
+                   errorMsg = String(errorData);
+               }
+            }
+            
+            setErrorDialog(errorMsg);
         }
     };
 
@@ -83,7 +122,7 @@ const Profile = () => {
             await axios.delete(`/api/accounts/${id}/`);
             toast.success('Account disconnected');
             fetchProfileData();
-        } catch (error) {
+        } catch {
             toast.error('Failed to disconnect account');
         }
     };
@@ -94,6 +133,25 @@ const Profile = () => {
                 <h1 className="text-3xl font-bold tracking-tight text-foreground">User Profile</h1>
                 <p className="text-muted-foreground">Manage your personal settings and MT5 trading accounts.</p>
             </header>
+
+            <Dialog open={!!errorDialog} onOpenChange={(open) => !open && setErrorDialog(null)}>
+                <DialogContent className="border-destructive/50">
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive flex items-center gap-2">
+                             <Trash2 className="h-5 w-5" /> Connection Failed
+                        </DialogTitle>
+                        <DialogDescription className="text-foreground font-medium pt-2">
+                            {errorDialog}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="bg-muted/50 p-3 rounded-lg text-xs font-mono text-muted-foreground">
+                        Ensure your terminal is open or the server address is correct.
+                    </div>
+                    <DialogFooter>
+                        <Button variant="secondary" onClick={() => setErrorDialog(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left: User Info */}
@@ -149,13 +207,16 @@ const Profile = () => {
                                 <CardTitle>Trading Accounts</CardTitle>
                                 <CardDescription>Link and manage your Metatrader 5 accounts.</CardDescription>
                             </div>
-                            <Dialog>
+                            <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button size="sm" className="gap-2 font-bold h-10">
                                         <Plus className="h-4 w-4" /> Add Account
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="glass-premium border-primary/20">
+                                <DialogContent 
+                                    className="glass-premium border-primary/20"
+                                    onInteractOutside={(e) => e.preventDefault()}
+                                >
                                     <DialogHeader>
                                         <DialogTitle>Link MT5 Account</DialogTitle>
                                         <DialogDescription>Enter your Metatrader 5 credentials to sync your account balance and trades.</DialogDescription>
@@ -165,7 +226,7 @@ const Profile = () => {
                                             <Label htmlFor="acc-num">Account Number</Label>
                                             <Input
                                                 id="acc-num"
-                                                placeholder="e.g. 100690024"
+                                                placeholder="e.g. 100093024"
                                                 value={accNum}
                                                 onChange={(e) => setAccNum(e.target.value)}
                                             />
@@ -188,6 +249,15 @@ const Profile = () => {
                                                 onChange={(e) => setAccServer(e.target.value)}
                                             />
                                         </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="acc-broker">Broker</Label>
+                                            <Input
+                                                id="acc-broker"
+                                                placeholder="e.g. XM Global"
+                                                value={accBroker}
+                                                onChange={(e) => setAccBroker(e.target.value)}
+                                            />
+                                        </div>
                                     </div>
                                     <DialogFooter>
                                         <Button className="w-full h-11 font-bold" onClick={handleConnectAccount}>Connect MT5 Account</Button>
@@ -201,7 +271,7 @@ const Profile = () => {
                                     key={acc.id}
                                     className={cn(
                                         "p-4 rounded-xl border transition-all flex flex-col gap-4",
-                                        acc.mode === 'REAL' ? "border-primary bg-primary/5" : "border-border bg-card"
+                                        !acc.is_demo ? "border-primary bg-primary/5" : "border-border bg-card"
                                     )}
                                 >
                                     <div className="flex items-center justify-between">
@@ -214,15 +284,22 @@ const Profile = () => {
                                             </div>
                                             <div>
                                                 <h4 className="font-bold flex items-center gap-2">
-                                                    #{acc.account_number}
-                                                    <Badge variant="outline" className="text-[10px] h-4 px-1">{acc.mode}</Badge>
+                                                    #{acc.mt5_login}
+                                                    <Badge variant="outline" className="text-[10px] h-4 px-1">{acc.is_demo ? 'DEMO' : 'LIVE'}</Badge>
                                                 </h4>
-                                                <p className="text-xs text-muted-foreground uppercase">{acc.server_name || 'MT5 CLOUD'}</p>
+                                                <p className="text-xs text-muted-foreground uppercase">{acc.mt5_server || 'MT5 CLOUD'}</p>
+                                                {acc.broker && <p className="text-[10px] text-primary/80 font-bold">{acc.broker}</p>}
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-sm font-extrabold">${acc.balance.toLocaleString()}</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">EQUITY</p>
+                                            <p className="text-sm font-extrabold">
+                                                {accountStates[acc.id] 
+                                                    ? `$${accountStates[acc.id].balance?.toLocaleString() ?? '0.00'}` 
+                                                    : 'Loading...'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">
+                                                {accountStates[acc.id] ? `EQ: $${accountStates[acc.id].equity?.toLocaleString() ?? '0.00'}` : 'EQUITY'}
+                                            </p>
                                         </div>
                                     </div>
 

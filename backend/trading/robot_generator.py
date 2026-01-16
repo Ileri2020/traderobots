@@ -2,7 +2,7 @@ import json
 
 class RobotGenerator:
     @staticmethod
-    def generate_mql5(robot_name, symbol, timeframe, rules, risk):
+    def generate_mql5(robot_id, robot_name, symbol, timeframe, rules, risk):
         """
         Generates MQL5 code for a given strategy.
         rules: dict of signals, e.g. {'rsi': {'buy': 30, 'sell': 70}, 'ma': {'period': 50, 'type': 'SMA'}}
@@ -21,6 +21,19 @@ class RobotGenerator:
         
         signal_logic = ""
 
+        # Heartbeat Logic
+        heartbeat_logic = f"""
+void SendHeartbeat()
+{{
+   int handle = FileOpen("robot_{robot_id}.hb", FILE_WRITE|FILE_CSV|FILE_COMMON);
+   if(handle != INVALID_HANDLE)
+   {{
+      FileWrite(handle, TimeCurrent());
+      FileClose(handle);
+   }}
+}}
+"""
+
         # Helper to add indicator logic
         def add_indicator(name, globals_str, init_str, deinit_str, logic_str, buy_cond, sell_cond):
             nonlocal global_vars, init_code, deinit_code, signal_logic
@@ -33,99 +46,107 @@ class RobotGenerator:
 
         # RSI Implementation
         if 'rsi' in rules:
-            add_indicator(
-                "RSI",
-                "int handle_rsi;\n",
-                f"   handle_rsi = iRSI(_Symbol, _Period, {rules['rsi'].get('period', 14)}, PRICE_CLOSE);\n"
-                "   if(handle_rsi == INVALID_HANDLE) return(INIT_FAILED);\n",
-                "   IndicatorRelease(handle_rsi);\n",
-                f"""
+            buy_mode = rules['rsi'].get('mode', 'level') # level or divergence
+            buy_val = rules['rsi'].get('buy', 30)
+            sell_val = rules['rsi'].get('sell', 70)
+            
+            logic = f"""
 bool CheckRSI(bool is_buy)
 {{
    double rsi[];
-   CopyBuffer(handle_rsi, 0, 0, 2, rsi);
+   CopyBuffer(handle_rsi, 0, 0, 10, rsi);
    ArraySetAsSeries(rsi, true);
-   if(is_buy) return rsi[0] < {rules['rsi'].get('buy', 30)};
-   else return rsi[0] > {rules['rsi'].get('sell', 70)};
+   if(is_buy) {{
+        if("{buy_mode}" == "divergence") return rsi[0] > rsi[1] && iLow(_Symbol, _Period, 0) < iLow(_Symbol, _Period, 1) && rsi[0] < 40;
+        return rsi[0] < {buy_val};
+   }} else {{
+        if("{buy_mode}" == "divergence") return rsi[0] < rsi[1] && iHigh(_Symbol, _Period, 0) > iHigh(_Symbol, _Period, 1) && rsi[0] > 60;
+        return rsi[0] > {sell_val};
+   }}
 }}
-""",
-                "CheckRSI(true)",
-                "CheckRSI(false)"
+"""
+            add_indicator(
+                "RSI", "int handle_rsi;\n",
+                f"   handle_rsi = iRSI(_Symbol, _Period, {rules['rsi'].get('period', 14)}, PRICE_CLOSE);\n",
+                "   IndicatorRelease(handle_rsi);\n",
+                logic, "CheckRSI(true)", "CheckRSI(false)"
             )
 
         # Moving Average Implementation
         if 'ma' in rules:
             ma_method = rules['ma'].get('type', 'MODE_SMA')
-            add_indicator(
-                "MA",
-                "int handle_ma;\n",
-                f"   handle_ma = iMA(_Symbol, _Period, {rules['ma'].get('period', 50)}, 0, {ma_method}, PRICE_CLOSE);\n"
-                "   if(handle_ma == INVALID_HANDLE) return(INIT_FAILED);\n",
-                "   IndicatorRelease(handle_ma);\n",
-                """
+            slope_needed = rules['ma'].get('slope_confirmation', False)
+            
+            logic = f"""
 bool CheckMA(bool is_buy)
 {{
    double ma[];
-   CopyBuffer(handle_ma, 0, 0, 2, ma);
+   CopyBuffer(handle_ma, 0, 0, 5, ma);
    ArraySetAsSeries(ma, true);
    double price = is_buy ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   if(is_buy) return price > ma[0];
-   else return price < ma[0];
+   bool slope_ok = true;
+   if({str(slope_needed).lower()}) {{
+       if(is_buy) slope_ok = ma[0] > ma[1];
+       else slope_ok = ma[0] < ma[1];
+   }}
+   if(is_buy) return price > ma[0] && slope_ok;
+   else return price < ma[0] && slope_ok;
 }}
-""",
-                "CheckMA(true)",
-                "CheckMA(false)"
+"""
+            add_indicator(
+                "MA", "int handle_ma;\n",
+                f"   handle_ma = iMA(_Symbol, _Period, {rules['ma'].get('period', 50)}, 0, {ma_method}, PRICE_CLOSE);\n",
+                "   IndicatorRelease(handle_ma);\n",
+                logic, "CheckMA(true)", "CheckMA(false)"
+            )
+
+        # Bollinger Bands Implementation
+        if 'bands' in rules:
+             squeeze_check = rules['bands'].get('squeeze_detection', False)
+             logic = f"""
+bool CheckBands(bool is_buy)
+{{
+   double upper[], lower[], middle[];
+   CopyBuffer(handle_bands, 0, 0, 5, middle);
+   CopyBuffer(handle_bands, 1, 0, 5, upper);
+   CopyBuffer(handle_bands, 2, 0, 5, lower);
+   ArraySetAsSeries(upper, true); ArraySetAsSeries(lower, true); ArraySetAsSeries(middle, true);
+   
+   if({str(squeeze_check).lower()}) {{
+       double width = (upper[0] - lower[0]) / middle[0];
+       double prev_width = (upper[1] - lower[1]) / middle[1];
+       if(width > prev_width) return false; // Not a squeeze
+   }}
+
+   if(is_buy) return SymbolInfoDouble(_Symbol, SYMBOL_ASK) < lower[0];
+   else return SymbolInfoDouble(_Symbol, SYMBOL_BID) > upper[0];
+}}
+"""
+             add_indicator(
+                "Bands", "int handle_bands;\n",
+                f"   handle_bands = iBands(_Symbol, _Period, {rules['bands'].get('period', 20)}, 0, {rules['bands'].get('dev', 2.0)}, PRICE_CLOSE);\n",
+                "   IndicatorRelease(handle_bands);\n",
+                logic, "CheckBands(true)", "CheckBands(false)"
             )
 
         # MACD Implementation
         if 'macd' in rules:
             add_indicator(
-                "MACD",
-                "int handle_macd;\n",
-                f"   handle_macd = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);\n"
-                "   if(handle_macd == INVALID_HANDLE) return(INIT_FAILED);\n",
+                "MACD", "int handle_macd;\n",
+                f"   handle_macd = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);\n",
                 "   IndicatorRelease(handle_macd);\n",
                 """
 bool CheckMACD(bool is_buy)
 {{
-   double macd_main[], macd_signal[];
-   CopyBuffer(handle_macd, 0, 0, 2, macd_main);
-   CopyBuffer(handle_macd, 1, 0, 2, macd_signal);
-   ArraySetAsSeries(macd_main, true);
-   ArraySetAsSeries(macd_signal, true);
-   if(is_buy) return macd_main[0] > macd_signal[0] && macd_main[1] <= macd_signal[1];
-   else return macd_main[0] < macd_signal[0] && macd_main[1] >= macd_signal[1];
+   double main[], signal[];
+   CopyBuffer(handle_macd, 0, 0, 2, main);
+   CopyBuffer(handle_macd, 1, 0, 2, signal);
+   ArraySetAsSeries(main, true); ArraySetAsSeries(signal, true);
+   if(is_buy) return main[0] > signal[0] && main[1] <= signal[1];
+   else return main[0] < signal[0] && main[1] >= signal[1];
 }}
 """,
-                "CheckMACD(true)",
-                "CheckMACD(false)"
-            )
-            
-        # Bollinger Bands Implementation
-        if 'bands' in rules:
-             add_indicator(
-                "Bands",
-                "int handle_bands;\n",
-                f"   handle_bands = iBands(_Symbol, _Period, {rules['bands'].get('period', 20)}, 0, {rules['bands'].get('dev', 2.0)}, PRICE_CLOSE);\n"
-                "   if(handle_bands == INVALID_HANDLE) return(INIT_FAILED);\n",
-                "   IndicatorRelease(handle_bands);\n",
-                """
-bool CheckBands(bool is_buy)
-{{
-   double upper[], lower[];
-   if(is_buy) {
-        CopyBuffer(handle_bands, 2, 0, 2, lower);
-        ArraySetAsSeries(lower, true);
-        return SymbolInfoDouble(_Symbol, SYMBOL_ASK) < lower[0];
-   } else {
-        CopyBuffer(handle_bands, 1, 0, 2, upper);
-        ArraySetAsSeries(upper, true);
-        return SymbolInfoDouble(_Symbol, SYMBOL_BID) > upper[0];
-   }
-}}
-""",
-                "CheckBands(true)",
-                "CheckBands(false)"
+                "CheckMACD(true)", "CheckMACD(false)"
             )
 
         # Stochastic Implementation
@@ -175,12 +196,15 @@ input int      InpTakeProfit= {risk.get('tp', 60)};      // Take Profit in point
 //--- Signal Logic Functions
 {signal_logic}
 
+{heartbeat_logic}
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
 {{
 {init_code}
+   SendHeartbeat();
    return(INIT_SUCCEEDED);
 }}
 
@@ -199,6 +223,8 @@ void OnTick()
 {{
    if(!TerminalInfoInteger(TERMINAL_CONNECTED)) return;
    
+   SendHeartbeat();
+
    // Check for open positions
    if(PositionsTotal() == 0)
    {{
@@ -338,9 +364,13 @@ TIMEFRAME = mt5.TIMEFRAME_{timeframe}
 LOT_SIZE = {risk.get('lot', 0.01)}
 SL_POINTS = {risk.get('sl', 30)}
 TP_POINTS = {risk.get('tp', 60)}
+MT5_PATH = r"C:\\Program Files\\XM Global MT5\\terminal64.exe"  # Update if using different MT5 installation
 
 def connect():
-    if not mt5.initialize(login=LOGIN, server=SERVER, password=PASSWORD):
+    import os
+    # Try to get path from environment variable, fallback to default
+    mt5_path = os.getenv('MT5_PATH', MT5_PATH)
+    if not mt5.initialize(path=mt5_path, login=LOGIN, server=SERVER, password=PASSWORD):
         print("initialize() failed, error code =", mt5.last_error())
         return False
     return True

@@ -22,6 +22,7 @@ load_dotenv(str(BASE_DIR / ".env"))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
+MT5_CREDENTIAL_SECRET = os.getenv('MT5_CREDENTIAL_SECRET')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
@@ -93,8 +94,8 @@ DATABASES = {
         'HOST': os.getenv('MONGO_URI'),
         'CLIENT': {
             'host': os.getenv('MONGO_URI'),
-            'connectTimeoutMS': 5000,
-            'serverSelectionTimeoutMS': 5000,
+            'connectTimeoutMS': 20000,
+            'serverSelectionTimeoutMS': 20000,
         }
     }
 }

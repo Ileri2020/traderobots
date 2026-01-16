@@ -15,7 +15,7 @@ django.setup()
 from django.contrib.auth.models import User
 from api.models import Profile, TradingAccount, Robot
 from social.models import Post, ChatGroup, Message
-from api.utils import encrypt_value
+from api.security import encrypt
 
 def populate():
     # 1. Create main user
@@ -27,9 +27,8 @@ def populate():
         user = User.objects.get(username=username)
     except User.DoesNotExist:
         user = User.objects.create(username=username, email=email)
-    
-    user.set_password(password)
-    user.save()
+        user.set_password(password)
+        user.save()
     
     try:
         profile = Profile.objects.get(user=user)
@@ -43,29 +42,31 @@ def populate():
 
     # 2. Create MT5 accounts for main user
     # Demo
+    login_demo = "100690024"
     try:
-        acc_demo = TradingAccount.objects.get(user=user, account_number="100690024")
+        acc_demo = TradingAccount.objects.get(user=user, mt5_login=login_demo)
     except TradingAccount.DoesNotExist:
-        acc_demo = TradingAccount(user=user, account_number="100690024")
+        acc_demo = TradingAccount(user=user, mt5_login=login_demo)
     
-    acc_demo.password = encrypt_value("R9JzFCyBFD@QZPT")
-    acc_demo.server = encrypt_value("XMGlobal-MT5 5")
-    acc_demo.mode = 'demo'
-    acc_demo.balance = 10000.00
-    acc_demo.equity = 10000.00
+    acc_demo.mt5_password = encrypt("R9JzFCyBFD@QZPT")
+    acc_demo.mt5_server = "XMGlobal-MT5 5"
+    acc_demo.is_demo = True
+    acc_demo.is_active = True
+    acc_demo.broker = "XM Global"
     acc_demo.save()
 
     # Real
+    login_real = "110145487"
     try:
-        acc_real = TradingAccount.objects.get(user=user, account_number="110145487")
+        acc_real = TradingAccount.objects.get(user=user, mt5_login=login_real)
     except TradingAccount.DoesNotExist:
-        acc_real = TradingAccount(user=user, account_number="110145487")
+        acc_real = TradingAccount(user=user, mt5_login=login_real)
     
-    acc_real.password = encrypt_value("R9JzFCyBFD@QZPT")
-    acc_real.server = encrypt_value("XMGlobal-MT5 2")
-    acc_real.mode = 'live'
-    acc_real.balance = 0.00
-    acc_real.equity = 0.00
+    acc_real.mt5_password = encrypt("R9JzFCyBFD@QZPT")
+    acc_real.mt5_server = "XMGlobal-MT5 2"
+    acc_real.is_demo = False
+    acc_real.is_active = True
+    acc_real.broker = "XM Global"
     acc_real.save()
     
     print("MT5 accounts created for main user.")

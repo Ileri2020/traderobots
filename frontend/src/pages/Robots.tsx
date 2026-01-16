@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,18 +44,14 @@ interface Robot {
 const Robots = () => {
     const [robots, setRobots] = useState<Robot[]>([]);
     const [filter, setFilter] = useState('all');
-    const [sortBy, setSortBy] = useState('win_rate');
+    const [sortBy, setSortBy] = useState('newest');
     const [errorDialog, setErrorDialog] = useState({ open: false, title: '', description: '' });
 
-    useEffect(() => {
-        fetchRobots();
-    }, []);
-
-    const fetchRobots = async () => {
+    const fetchRobots = useCallback(async () => {
         try {
             const response = await axios.get('/api/robots/');
             setRobots(response.data);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error fetching robots:', error);
             setErrorDialog({
                 open: true,
@@ -63,7 +59,11 @@ const Robots = () => {
                 description: 'Unable to load robot marketplace. Please check your connection.'
             });
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchRobots();
+    }, [fetchRobots]);
 
     const handleDownloadRobot = (robot: Robot) => {
         if (!robot.mql5_code) {

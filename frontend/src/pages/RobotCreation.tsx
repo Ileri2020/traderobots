@@ -79,6 +79,12 @@ interface StrategyConfigs {
     lotSize: number;
     sl: number;
     tp: number;
+    historical: {
+        lookback: number;
+        recencyBias: number;
+        session: string;
+        confidenceThreshold: number;
+    };
 }
 
 interface TradingAccount {
@@ -104,11 +110,11 @@ interface Robot {
 }
 
 const RobotCreation = () => {
-    const userString = localStorage.getItem('user');
-    const user = userString ? JSON.parse(userString) : null;
+    // user local storage check
     const [step, setStep] = useState(1);
     const [isCreating, setIsCreating] = useState(false);
     const [creationProgress, setCreationProgress] = useState(0);
+    const [taskLog, setTaskLog] = useState("");
     const [createdRobot, setCreatedRobot] = useState<Robot | null>(null);
     const [accounts, setAccounts] = useState<TradingAccount[]>([]);
     const [showDeployModal, setShowDeployModal] = useState(false);
@@ -132,7 +138,13 @@ const RobotCreation = () => {
         ichimoku: { active: false },
         lotSize: 0.01,
         sl: 30,
-        tp: 60
+        tp: 60,
+        historical: {
+            lookback: 3,
+            recencyBias: 0.1,
+            session: 'ANY',
+            confidenceThreshold: 0.6
+        }
     });
 
     useEffect(() => {
@@ -154,7 +166,7 @@ const RobotCreation = () => {
     const handleCreateRNNRobot = async () => {
         setIsCreating(true);
         setCreationProgress(0);
-        let interval: any;
+        let interval: ReturnType<typeof setInterval> | undefined;
         try {
             const payload = {
                 name: robotName,
@@ -171,16 +183,16 @@ const RobotCreation = () => {
 
             const response = await axios.post('/api/robots/create_rnn_robot/', payload);
 
-            clearInterval(interval);
+            if (interval) clearInterval(interval);
             setCreationProgress(100);
 
             setTimeout(() => {
                 setIsCreating(false);
-                setCreatedRobot(response.data);
+                setCreatedRobot(response.data.robot);
                 setStep(3);
                 toast.success('RNN Colab script generated! Copy and run it in Google Colab.');
             }, 500);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("RNN synthesis failed", error);
             setIsCreating(false);
             toast.error("Failed to initiate RNN synthesis.");
@@ -195,7 +207,7 @@ const RobotCreation = () => {
         setIsCreating(true);
         setCreationProgress(0);
 
-        let interval: any;
+        let interval: ReturnType<typeof setInterval> | undefined;
         try {
             // Mapping UI state to Backend API expected format
             const indicators = [];
@@ -231,7 +243,8 @@ const RobotCreation = () => {
                 rsi_settings: configs.rsi,
                 ma_settings: configs.ma,
                 bands_settings: configs.bands,
-                stoch_settings: configs.stoch
+                stoch_settings: configs.stoch,
+                historical: configs.historical
             };
 
             // Start simulation
@@ -243,49 +256,58 @@ const RobotCreation = () => {
             }, 100);
 
             const response = await axios.post('/api/robots/create_winrate_robot/', payload);
+            const taskId = response.data.task_id;
+            setCreatedRobot(response.data.robot);
 
-            clearInterval(interval);
-            setCreationProgress(100);
-
-            setTimeout(() => {
-                setIsCreating(false);
-                setCreatedRobot(response.data);
-                setStep(3); // Advance to Step 3
-                toast.success('Robot created and MQL5 code generated!');
-            }, 500);
+            // Start Polling for Task Status
+            const pollInterval = setInterval(async () => {
+                try {
+                    const taskRes = await axios.get(`/api/build-tasks/${taskId}/`);
+                    const task = taskRes.data;
+                    setCreationProgress(task.progress);
+                    setTaskLog(task.log);
+                    
+                    if (task.status === 'COMPLETE') {
+                        clearInterval(pollInterval);
+                        if (interval) clearInterval(interval);
+                        
+                        // Fetch the fully updated robot data (with mql5_code)
+                        const robotRes = await axios.get(`/api/robots/${response.data.robot.id}/`);
+                        setCreatedRobot(robotRes.data);
+                        
+                        setIsCreating(false);
+                        setStep(3);
+                        toast.success('Robot synthesized successfully!');
+                    } else if (task.status === 'FAILED') {
+                        clearInterval(pollInterval);
+                        if (interval) clearInterval(interval);
+                        setIsCreating(false);
+                        
+                        setErrorDialog({
+                            open: true,
+                            title: 'Strategic Synthesis Failed',
+                            description: task.log || 'An unknown error occurred during the AI training phase.'
+                        });
+                        console.error("Task failed:", task.log);
+                    }
+                } catch (e) {
+                    console.error("Polling error", e);
+                }
+            }, 1000);
 
         } catch (error: any) {
-            console.error("Backend synthesis failed, falling back to UI logic", error);
+            console.error("Backend synthesis request failed", error);
+            if (interval) clearInterval(interval);
+            setIsCreating(false);
 
-            // UI-ONLY FALLBACK LOGIC
-            // If the backend fails (e.g. 500 from MT5 being down), we generate a local mock robot
-            // so the user can still proceed through the UI flow.
+            const msg = error.response?.data?.error || "Strategic Engine Offline";
+            const details = error.response?.data?.details || "";
 
-            const mockRobot: Robot = {
-                id: `mock_${Math.random().toString(36).substr(2, 9)}`,
-                name: robotName,
-                symbol: configs.symbol,
-                method: strategyMode,
-                win_rate: 75.2 + Math.random() * 10,
-                mql5_code: `// MQL5 Code for ${configs.symbol} generated by UI Fallback\nvoid OnTick() {\n   // Mock logic\n}`,
-                python_code: `# Python Bridge for ${configs.symbol}\nprint("Running UI Mock Bot")`,
-                user_name: user?.username || 'Guest'
-            };
-
-            clearInterval(interval);
-            setCreationProgress(100);
-
-            setTimeout(() => {
-                setIsCreating(false);
-                setCreatedRobot(mockRobot);
-                setStep(3); // Advance to Step 3
-
-                setErrorDialog({
-                    open: true,
-                    title: 'Strategic Engine Offline',
-                    description: 'The primary MT5 cloud bridge is currently unreachable or failed to fetch enough historical candle data for training. We have activated the LOCAL SYNTHETIC ENGINE to generate your strategy code so you can still preview and download it.'
-                });
-            }, 500);
+            setErrorDialog({
+                open: true,
+                title: 'Synthesis Connection Error',
+                description: `${msg}\n${details}`.trim()
+            });
         }
     };
 
@@ -293,6 +315,17 @@ const RobotCreation = () => {
         if (createdRobot?.mql5_code) {
             navigator.clipboard.writeText(createdRobot.mql5_code);
             toast.success("MQL5 Code copied to clipboard!");
+        } else {
+            toast.error("MQL5 code not available yet.");
+        }
+    };
+
+    const handleCopyPython = () => {
+        if (createdRobot?.python_code) {
+            navigator.clipboard.writeText(createdRobot.python_code);
+            toast.success("Python Code copied to clipboard!");
+        } else {
+            toast.error("Python bridge code not available. Try deploying first.");
         }
     };
 
@@ -301,29 +334,53 @@ const RobotCreation = () => {
             toast.error("Please select a trading account");
             return;
         }
+        
+        if (!createdRobot || !createdRobot.id) {
+            toast.error("Robot ID is missing. Please try building again.");
+            return;
+        }
+
         setIsDeploying(true);
         try {
-            if (!createdRobot) return;
+            // 1. Deploy (Validate & Setup)
             const res = await axios.post(`/api/robots/${createdRobot.id}/deploy/`, {
                 account_id: deployConfig.accountId,
                 lot: deployConfig.lot,
                 sl: deployConfig.sl,
                 tp: deployConfig.tp
             });
+
+            // 2. Execute First Trade (Launch)
+            const tradeRes = await axios.post(`/api/robots/${createdRobot.id}/start_trade/`, {
+                account_id: deployConfig.accountId,
+                lot: deployConfig.lot,
+                sl: deployConfig.sl,
+                tp: deployConfig.tp,
+            });
+
             setShowDeployModal(false);
-            toast.success("Robot Deployed Successfully!", {
-                description: "Python trading script is ready/running."
+            toast.success("Robot Deployed & Trade Executed!", {
+                description: `Order Ticket: ${tradeRes.data.mt5_ticket || 'Pending'}`
             });
             // Update local robot state with new python code if needed
             setCreatedRobot((prev) => prev ? { ...prev, python_code: res.data.python_code } : null);
+            
+            // Redirect to dashboard or robots list after a short delay
+            setTimeout(() => {
+                window.location.href = '/robots';
+            }, 2000);
+            
         } catch (e: any) {
             console.error(e);
             setShowDeployModal(false);
             const msg = e.response?.data?.error || "Could not connect to the trading account.";
+            const details = e.response?.data?.details || "";
+            const actionRequired = e.response?.data?.action_required ? e.response.data.action_required.join('\n') : "";
+
             setErrorDialog({
                 open: true,
                 title: 'Deployment Failed',
-                description: msg
+                description: `${msg}\n\n${details}\n\n${actionRequired}`.trim()
             });
         } finally {
             setIsDeploying(false);
@@ -366,7 +423,7 @@ const RobotCreation = () => {
                                 <Settings2 className="h-4 w-4" /> Strategy Designer
                             </CardTitle>
                             <CardDescription>Select strategy type and configure parameters.</CardDescription>
-                            <Tabs defaultValue="winrate" onValueChange={(val: string) => setStrategyMode(val as any)} className="w-full mt-4">
+                            <Tabs defaultValue="winrate" onValueChange={(val: string) => setStrategyMode(val as 'winrate' | 'rnn')} className="w-full mt-4">
                                 <TabsList className="grid w-full grid-cols-2">
                                     <TabsTrigger value="winrate">Logic-Based</TabsTrigger>
                                     <TabsTrigger value="rnn">Neural (RNN)</TabsTrigger>
@@ -571,6 +628,59 @@ const RobotCreation = () => {
                                         </Accordion>
                                     </div>
                                     <Separator />
+                                    <div className="space-y-4">
+                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Historical Analysis Settings</Label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px]">Lookback</Label>
+                                                <Select
+                                                    value={configs.historical.lookback.toString()}
+                                                    onValueChange={(val) => setConfigs({ ...configs, historical: { ...configs.historical, lookback: parseInt(val) } })}
+                                                >
+                                                    <SelectTrigger className="h-8">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="1">1 Month</SelectItem>
+                                                        <SelectItem value="3">3 Months</SelectItem>
+                                                        <SelectItem value="6">6 Months</SelectItem>
+                                                        <SelectItem value="12">1 Year</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px]">Session</Label>
+                                                <Select
+                                                    value={configs.historical.session}
+                                                    onValueChange={(val) => setConfigs({ ...configs, historical: { ...configs.historical, session: val } })}
+                                                >
+                                                    <SelectTrigger className="h-8">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="ANY">Any</SelectItem>
+                                                        <SelectItem value="LONDON">London</SelectItem>
+                                                        <SelectItem value="NY">New York</SelectItem>
+                                                        <SelectItem value="ASIA">Asia</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-[10px]">
+                                                <span>Recency Bias ({configs.historical.recencyBias})</span>
+                                                <span className="text-muted-foreground">Focus on recent data</span>
+                                            </div>
+                                            <Slider
+                                                min={0}
+                                                max={1}
+                                                step={0.1}
+                                                value={[configs.historical.recencyBias]}
+                                                onValueChange={([val]) => setConfigs({ ...configs, historical: { ...configs.historical, recencyBias: val } })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <Separator />
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-bold uppercase">Stop Loss (pts)</Label>
@@ -653,14 +763,14 @@ const RobotCreation = () => {
                                         <div className="p-4 bg-primary/10 rounded-full animate-pulse border border-primary/20">
                                             <Cpu className="h-10 w-10 text-primary" />
                                         </div>
-                                        <div className="space-y-2">
-                                            <h4 className="text-xl font-black italic tracking-tighter uppercase">AI QUANTUM CORE</h4>
-                                            <p className="text-xs text-muted-foreground leading-relaxed px-4">
-                                                {creationProgress < 100
-                                                    ? `Simulating millions of market variations using the selected indicators for ${configs.symbol}...`
-                                                    : "Strategy generated and ready for deployment!"}
-                                            </p>
-                                        </div>
+                                         <div className="space-y-2">
+                                             <h4 className="text-xl font-black italic tracking-tighter uppercase">AI QUANTUM CORE</h4>
+                                             <p className="text-xs text-muted-foreground leading-relaxed px-4 h-12 flex items-center justify-center">
+                                                 {creationProgress < 100
+                                                     ? (taskLog || `Sythesizing strategies for ${configs.symbol}...`)
+                                                     : "Strategy generated and ready for deployment!"}
+                                             </p>
+                                         </div>
                                         <div className="w-full space-y-2">
                                             <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
                                                 <span>{creationProgress < 100 ? "AI NEURAL SYNTHESIS" : "MODEL GENERATED"}</span>
@@ -706,24 +816,46 @@ const RobotCreation = () => {
                                         <CardDescription>Your robot "{createdRobot.symbol} Bot" is compiled and optimized.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        className="h-24 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 border-dashed"
-                                                        onClick={handleCopyMql5}
-                                                    >
-                                                        <Copy className="h-6 w-6 text-primary" />
-                                                        <span className="font-bold">{strategyMode === 'rnn' ? 'Copy Colab Code' : 'Copy MQL5 Source'}</span>
-                                                        <span className="text-xs text-muted-foreground">{strategyMode === 'rnn' ? 'Paste into Google Colab' : 'For MetaEditor Manual Compile'}</span>
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>{strategyMode === 'rnn' ? 'Get the full TensorFlow code' : 'Copy MT5 source code'}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="h-24 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 border-dashed"
+                                                            onClick={handleCopyMql5}
+                                                        >
+                                                            <Copy className="h-6 w-6 text-primary" />
+                                                            <span className="font-bold text-xs">{strategyMode === 'rnn' ? 'Copy Colab Code' : 'Copy Mql5 Source'}</span>
+                                                            <span className="text-[10px] text-muted-foreground">{strategyMode === 'rnn' ? 'Paste into Colab' : 'For MetaEditor'}</span>
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>{strategyMode === 'rnn' ? 'Get full TensorFlow code' : 'Copy MT5 source code'}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="h-24 flex flex-col items-center justify-center gap-2 hover:bg-muted/50 border-dashed"
+                                                            onClick={handleCopyPython}
+                                                            disabled={!createdRobot?.python_code}
+                                                        >
+                                                            <Cpu className="h-6 w-6 text-orange-500" />
+                                                            <span className="font-bold text-xs">Copy Python Bridge</span>
+                                                            <span className="text-[10px] text-muted-foreground">For External Bots</span>
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Copy the Python execution script</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
 
                                         <TooltipProvider>
                                             <Tooltip>

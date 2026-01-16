@@ -13,4 +13,29 @@ dnspython
 tensorflow
 pandas_ta
 certifi
+yfinance==0.2.40
+# Backend / Async / Scheduling
+celery
+redis
+django-celery-results
+django-celery-beat
+
+# MT5 & Trading
+MetaTrader5
+
+# Scientific & Optimization
+scipy
+statsmodels
+scikit-learn
+
+# Time & Date Handling
+pytz
+python-dateutil
+
+# Serialization & Security
+cryptography
+
+# WebSockets
+channels
+channels-redis
 

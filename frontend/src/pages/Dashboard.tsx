@@ -181,20 +181,39 @@ const Dashboard = () => {
         if (!selectedRobot || !accounts[0]) return;
         setIsDeploying(true);
         try {
+            // 1. Deploy
             await axios.post(`/api/robots/${selectedRobot.id}/deploy/`, {
                 account_id: accounts[0].id,
                 lot: tradeConfig.lot,
                 sl: tradeConfig.sl,
                 tp: tradeConfig.tp
             });
+
+            // 2. Place Trade
+            const tradeRes = await axios.post(`/api/robots/${selectedRobot.id}/start_trade/`, {
+                account_id: accounts[0].id,
+                lot: tradeConfig.lot,
+                sl: tradeConfig.sl,
+                tp: tradeConfig.tp
+            });
+
             toast.success("Order Placed Successfully!", {
-                description: `Bot ${selectedRobot.symbol} is now executing with ${tradeConfig.lot} lot.`
+                description: `Ticket: ${tradeRes.data.mt5_ticket || 'Executed'}. Bot ${selectedRobot.symbol} is active.`
             });
             setShowTradeModal(false);
             fetchData();
         } catch (error: any) {
             const msg = error.response?.data?.error || "Failed to execute trade on MT5.";
-            toast.error("MT5 Execution Failed", { description: msg });
+            const details = error.response?.data?.details || "";
+            const actionRequired = error.response?.data?.action_required ? error.response.data.action_required.join('\n') : "";
+            
+            setErrorDialog({
+                open: true,
+                title: 'MT5 Execution Failed',
+                description: `${msg}\n\n${details}\n\n${actionRequired}`.trim()
+            });
+            
+            toast.error("MT5 Execution Failed");
         } finally {
             setIsDeploying(false);
         }

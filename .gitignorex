@@ -1,0 +1,39 @@
+# General
+node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+db.sqlite3
+media/
+static/
+dist/
+build/
+.next/
+.serverless/
+.vercel/
+
+# Frontend specific
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Backend specific
+backend/.env
+backend/venv/
+backend/env/
+backend/__pycache__/
+backend/db.sqlite3
+backend/media/
+backend/static/
+
+# MQL documentation
+mql5.pdf

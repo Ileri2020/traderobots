@@ -67,9 +67,15 @@ const Landing = () => {
     const fetchPosts = async () => {
         try {
             const response = await axios.get('/api/social/posts/');
-            setPosts(response.data);
+            if (Array.isArray(response.data)) {
+                setPosts(response.data);
+            } else {
+                setPosts([]);
+                console.error('API Error: Posts response is not an array', response.data);
+            }
         } catch (error) {
             console.error('Error fetching posts:', error);
+            setPosts([]);
         } finally {
             setIsLoading(false);
         }

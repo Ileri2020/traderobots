@@ -27,6 +27,7 @@ const Signup = () => {
             toast.success('Account created! Please log in.');
             navigate('/login');
         } catch (error) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const err = error as any;
             toast.error(err.response?.data?.error || 'Signup failed');
         } finally {

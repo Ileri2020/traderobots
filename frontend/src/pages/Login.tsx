@@ -16,16 +16,22 @@ const Login = () => {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Login form submitted");
+        toast.info("Attempting login...");
         setIsLoading(true);
         try {
+            console.log("Sending request to /api/users/login/");
             const response = await axios.post('/api/users/login/', {
                 username,
                 password
             });
+            console.log("Login success:", response.data);
             localStorage.setItem('user', JSON.stringify(response.data));
             toast.success('Login successful!');
-            navigate('/');
+            navigate('/'); // Navigate immediately
+            // window.location.href = '/'; // Hard reload fallback if navigate fails
         } catch (error) {
+            console.error("Login failed:", error);
             const err = error as any;
             const msg = err.response?.data?.error || 'Login failed';
             toast.error(msg);
