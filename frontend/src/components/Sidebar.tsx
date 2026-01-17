@@ -15,7 +15,6 @@ import {
     Users,
     Activity,
     CheckCircle2,
-    XCircle,
     Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -68,44 +67,6 @@ const SidebarContent = ({ setOpen }: { setOpen?: (open: boolean) => void }) => {
         checkAccounts();
     }, [user]);
 
-    const handleMt5Initialize = async () => {
-        setMt5Status('checking');
-        setShowMt5Dialog(true);
-        
-        try {
-            // Check current MT5 status
-            const statusResponse = await axios.get('/api/accounts/mt5/status/');
-            
-            if (statusResponse.data.connected) {
-                setMt5Status('connected');
-                setMt5Details(statusResponse.data);
-                toast.success('MT5 Terminal Connected!', {
-                    description: `Account: ${statusResponse.data.login || 'Connected'}`
-                });
-            } else {
-                // Try to reconnect
-                const reconnectResponse = await axios.post('/api/accounts/mt5/reconnect/');
-                
-                if (reconnectResponse.data.status === 'RECONNECTED') {
-                    setMt5Status('connected');
-                    setMt5Details(reconnectResponse.data.health);
-                    toast.success('MT5 Terminal Initialized!', {
-                        description: 'Connection established successfully'
-                    });
-                } else {
-                    throw new Error(reconnectResponse.data.error || 'Connection failed');
-                }
-            }
-        } catch (error: any) {
-            setMt5Status('error');
-            const errorMsg = error.response?.data?.error || error.message || 'Failed to initialize MT5';
-            toast.error('MT5 Connection Failed', {
-                description: errorMsg
-            });
-            setMt5Details({ error: errorMsg });
-        }
-    };
-
     const handleLogout = async () => {
         try {
             await axios.post('/api/users/logout/');
@@ -115,6 +76,41 @@ const SidebarContent = ({ setOpen }: { setOpen?: (open: boolean) => void }) => {
         } catch (error) {
             localStorage.removeItem('user');
             navigate('/login');
+        }
+    };
+
+    const [accounts, setAccounts] = useState<any[]>([]);
+
+    const openSyncModal = async () => {
+        setMt5Status('idle');
+        setShowMt5Dialog(true);
+        // Fetch accounts
+        try {
+            const res = await axios.get('/api/accounts/');
+            setAccounts(res.data);
+            if (res.data.length === 0) {
+                setMt5Status('error');
+                setMt5Details({ error: "No MT5 accounts found. Please add one in Profile." });
+            }
+        } catch (e) {
+            console.error(e);
+            setMt5Status('error');
+            setMt5Details({ error: "Failed to load accounts" });
+        }
+    };
+
+    const handleConnect = async (accountId: number) => {
+        setMt5Status('checking');
+        try {
+            // Updated to match TradingAccountViewSet detail action
+            const response = await axios.post(`/api/accounts/${accountId}/sync_mt5/`);
+            setMt5Status('connected');
+            setMt5Details(response.data);
+            toast.success('MT5 Connected', { description: `Active Account: ${response.data.login}` });
+        } catch (error: any) {
+            setMt5Status('error');
+            const msg = error.response?.data?.message || error.response?.data?.error || "Connection Failed";
+            setMt5Details({ error: msg });
         }
     };
 
@@ -150,7 +146,7 @@ const SidebarContent = ({ setOpen }: { setOpen?: (open: boolean) => void }) => {
             {user && hasAccounts && (
                 <div className="px-2 mb-4">
                     <Button
-                        onClick={handleMt5Initialize}
+                        onClick={openSyncModal}
                         disabled={mt5Status === 'checking'}
                         className="w-full justify-start gap-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg"
                     >
@@ -164,7 +160,7 @@ const SidebarContent = ({ setOpen }: { setOpen?: (open: boolean) => void }) => {
                         <span className="font-medium">
                             {mt5Status === 'checking' ? 'Connecting...' : 
                              mt5Status === 'connected' ? 'MT5 Connected' : 
-                             'Initialize MT5'}
+                             'Sync MT5'}
                         </span>
                     </Button>
                 </div>
@@ -201,47 +197,67 @@ const SidebarContent = ({ setOpen }: { setOpen?: (open: boolean) => void }) => {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            {mt5Status === 'checking' && <Loader2 className="w-5 h-5 animate-spin" />}
-                            {mt5Status === 'connected' && <CheckCircle2 className="w-5 h-5 text-green-600" />}
-                            {mt5Status === 'error' && <XCircle className="w-5 h-5 text-red-600" />}
-                            MT5 Terminal Status
+                           MT5 Connection Manager
                         </DialogTitle>
                         <DialogDescription>
-                            {mt5Status === 'checking' && 'Initializing MT5 terminal connection...'}
-                            {mt5Status === 'connected' && 'Successfully connected to MT5 terminal'}
-                            {mt5Status === 'error' && 'Failed to connect to MT5 terminal'}
+                           Select an account to connect. Only one account can be active at a time.
                         </DialogDescription>
                     </DialogHeader>
+
+                    {mt5Status === 'error' && mt5Details?.error && (
+                         <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
+                             {mt5Details.error}
+                         </div>
+                    )}
                     
-                    {mt5Details && mt5Status === 'connected' && (
-                        <div className="space-y-3 mt-4">
-                            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                                <span className="text-sm text-muted-foreground">Account</span>
-                                <span className="font-medium">{mt5Details.login}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                                <span className="text-sm text-muted-foreground">Balance</span>
-                                <span className="font-medium">${mt5Details.balance?.toFixed(2) || '0.00'}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                                <span className="text-sm text-muted-foreground">Equity</span>
-                                <span className="font-medium">${mt5Details.equity?.toFixed(2) || '0.00'}</span>
-                            </div>
-                            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                                <span className="text-sm text-muted-foreground">Trading Allowed</span>
-                                <span className={cn(
-                                    "font-medium",
-                                    mt5Details.can_trade ? "text-green-600" : "text-red-600"
-                                )}>
-                                    {mt5Details.can_trade ? 'Yes' : 'No'}
-                                </span>
-                            </div>
+                    {mt5Status !== 'connected' && (
+                        <div className="grid gap-2 mt-4">
+                            {accounts.map(acc => (
+                                <Button 
+                                    key={acc.id} 
+                                    variant="outline" 
+                                    className="justify-between h-auto py-3"
+                                    onClick={() => handleConnect(acc.id)}
+                                    disabled={mt5Status === 'checking'}
+                                >
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-bold">{acc.mt5_login}</span>
+                                        <span className="text-xs text-muted-foreground">{acc.mt5_server}</span>
+                                    </div>
+                                    {mt5Status === 'checking' ? <Loader2 className="w-4 h-4 animate-spin"/> : <Activity className="w-4 h-4 text-muted-foreground" />}
+                                </Button>
+                            ))}
+                            <Button 
+                                variant="ghost" 
+                                className="mt-2 text-primary"
+                                onClick={() => { setShowMt5Dialog(false); navigate('/profile'); }}
+                            >
+                                + Add New Account
+                            </Button>
                         </div>
                     )}
                     
-                    {mt5Details && mt5Status === 'error' && (
-                        <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                            <p className="text-sm text-destructive">{mt5Details.error}</p>
+                    {mt5Status === 'connected' && mt5Details && (
+                        <div className="space-y-3 mt-4">
+                            <div className="flex justify-between items-center p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                <span className="font-bold text-green-700 dark:text-green-400">Connected Successfully</span>
+                                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                                <span className="text-sm text-muted-foreground">Account</span>
+                                <span className="font-medium">{mt5Details.account_number || mt5Details.login}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                                <span className="text-sm text-muted-foreground">Balance</span>
+                                <span className="font-medium">${mt5Details.balance?.toFixed(2)}</span>
+                            </div>
+                             <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                                <span className="text-sm text-muted-foreground">Equity</span>
+                                <span className="font-medium">${mt5Details.equity?.toFixed(2)}</span>
+                            </div>
+                            <Button className="w-full mt-2" onClick={() => setShowMt5Dialog(false)}>
+                                Done
+                            </Button>
                         </div>
                     )}
                 </DialogContent>
@@ -249,7 +265,6 @@ const SidebarContent = ({ setOpen }: { setOpen?: (open: boolean) => void }) => {
         </div>
     );
 };
-
 const Sidebar = () => {
     const [open, setOpen] = useState(false);
 
